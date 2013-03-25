@@ -13,6 +13,15 @@ class DRbDump
   VERSION = '1.0'
 
   ##
+  # Starts dumping DRb traffic.
+
+  def self.run argv = ARGV
+    device = argv.shift || Capp.default_device_name
+
+    new(device).run
+  end
+
+  ##
   # Creates a new DRbDump that listens on +device+.  If no device is given the
   # default device is used.
   #
@@ -44,16 +53,20 @@ class DRbDump
   # Currently only understands RingFinger broadcast packets.
 
   def display packet
-    payload = packet.ip_payload[8, packet.capture_length]
+    payload = packet.payload
+
     obj = Marshal.load payload
 
-    if obj.first.first == :lookup_ring then
+    if Array === obj and Array === obj.first and
+       obj.first.first == :lookup_ring then
       time = packet.timestamp.strftime '%H:%M:%S.%6N'
       (_, tell), timeout = obj
       puts "#{time} find ring for #{tell.__drburi} timeout #{timeout}"
     else
-      puts payload.dump
+      p obj
     end
+  rescue
+    p payload.dump
   end
 
   ##

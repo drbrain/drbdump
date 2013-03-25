@@ -1,0 +1,6 @@
+#!/usr/bin/env ruby
+
+require 'drbdump'
+
+DRbDump.run ARGV
+

@@ -3,4 +3,5 @@ History.rdoc
 Manifest.txt
 README.rdoc
 Rakefile
+bin/drbdump
 lib/drbdump.rb
