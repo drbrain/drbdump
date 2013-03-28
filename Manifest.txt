@@ -4,4 +4,5 @@ Manifest.txt
 README.rdoc
 Rakefile
 bin/drbdump
+example/ping.rb
 lib/drbdump.rb
