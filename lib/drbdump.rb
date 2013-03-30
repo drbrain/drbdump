@@ -48,7 +48,7 @@ class DRbDump
   def capture_drb_tcp
     Thread.new do
       capp = Capp.open @device
-      capp.filter = 'ip and tcp'
+      capp.filter = 'tcp'
 
       capp.loop do |packet|
         @incoming_packets.enq packet
@@ -115,10 +115,9 @@ class DRbDump
   def display_drb_recv packet, success, stream
     result = @loader.load stream
 
-    puts "%s %s:%d > %s:%d: success: %s result: %s" % [
+    puts "%s %s > %s: success: %s result: %s" % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
-      packet.ipv4_header.source,      packet.tcp_header.source_port,
-      packet.ipv4_header.destination, packet.tcp_header.destination_port,
+      packet.source, packet.destination,
       success, result
     ]
   end
@@ -135,10 +134,9 @@ class DRbDump
     end
     block = @loader.load stream
 
-    puts "%s %s:%d > %s:%d: %s.%s(%s)" % [
+    puts "%s %s > %s: %s.%s(%s)" % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
-      packet.ipv4_header.source,      packet.tcp_header.source_port,
-      packet.ipv4_header.destination, packet.tcp_header.destination_port,
+      packet.source, packet.destination,
       ref, msg, argv.join(', ')
     ]
   end
