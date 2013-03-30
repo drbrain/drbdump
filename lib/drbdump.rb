@@ -15,6 +15,8 @@ class DRbDump
 
   VERSION = '1.0'
 
+  TIMESTAMP_FORMAT = '%H:%M:%S.%6N' # :nodoc:
+
   attr_reader :incoming_packets
 
   ##
@@ -78,14 +80,13 @@ class DRbDump
 
     if Array === obj and Array === obj.first and
        obj.first.first == :lookup_ring then
-      time = packet.timestamp.strftime '%H:%M:%S.%6N'
+      time = packet.timestamp.strftime TIMESTAMP_FORMAT
       (_, tell), timeout = obj
       puts "#{time} find ring for #{tell.__drburi} timeout #{timeout}"
     else
       p obj
     end
   rescue
-    p $!
   end
 
   ##
@@ -97,42 +98,54 @@ class DRbDump
     return if payload.empty?
     return unless payload =~ /\A....\x04\x08/m
 
-    time = packet.timestamp.strftime '%H:%M:%S.%6N'
-
     stream = StringIO.new payload
 
-    ref = @loader.load stream
+    first_chunk = @loader.load stream
 
-    case ref
+    case first_chunk
     when nil, String then
-      ref ||= '(front)'
-      msg = @loader.load stream
-      argc = @loader.load stream
-      argv = Array.new argc do
-        @loader.load stream
-      end
-      block = @loader.load stream
-
-      puts "%s %s:%d > %s:%d: %s.%s(%s)" % [
-        time,
-        packet.ipv4_header.source,      packet.tcp_header.source_port,
-        packet.ipv4_header.destination, packet.tcp_header.destination_port,
-        ref, msg, argv.join(', ')
-      ]
+      display_drb_send packet, first_chunk, stream
     when true, false then
-      result = @loader.load stream
-
-      puts "%s %s:%d > %s:%d: success: %s result: %s" % [
-        time,
-        packet.ipv4_header.source,      packet.tcp_header.source_port,
-        packet.ipv4_header.destination, packet.tcp_header.destination_port,
-        ref, result
-      ]
+      display_drb_recv packet, first_chunk, stream
     else
       # ignore
     end
   rescue DRb::DRbConnError
     # ignore
+  end
+
+  ##
+  # Writes a DRb packet for a message recv to standard output.
+
+  def display_drb_recv packet, success, stream
+    result = @loader.load stream
+
+    puts "%s %s:%d > %s:%d: success: %s result: %s" % [
+      packet.timestamp.strftime(TIMESTAMP_FORMAT),
+      packet.ipv4_header.source,      packet.tcp_header.source_port,
+      packet.ipv4_header.destination, packet.tcp_header.destination_port,
+      success, result
+    ]
+  end
+
+  ##
+  # Writes a DRb packet for a message send to standard output.
+
+  def display_drb_send packet, ref, stream # :nodoc:
+    ref ||= '(front)'
+    msg = @loader.load stream
+    argc = @loader.load stream
+    argv = Array.new argc do
+      @loader.load stream
+    end
+    block = @loader.load stream
+
+    puts "%s %s:%d > %s:%d: %s.%s(%s)" % [
+      packet.timestamp.strftime(TIMESTAMP_FORMAT),
+      packet.ipv4_header.source,      packet.tcp_header.source_port,
+      packet.ipv4_header.destination, packet.tcp_header.destination_port,
+      ref, msg, argv.join(', ')
+    ]
   end
 
   ##
