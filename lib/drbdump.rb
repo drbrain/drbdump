@@ -15,6 +15,8 @@ class DRbDump
 
   VERSION = '1.0'
 
+  attr_reader :incoming_packets
+
   ##
   # Starts dumping DRb traffic.
 
@@ -33,10 +35,9 @@ class DRbDump
   def initialize device = Capp.default_device_name
     @device = device
 
-    @drb_config = DRb::DRbServer.make_config
-
-    @udp_incoming = Queue.new
-    @tcp_incoming = Queue.new
+    @drb_config       = DRb::DRbServer.make_config
+    @incoming_packets = Queue.new
+    @loader           = DRb::DRbMessage.new @drb_config
   end
 
   ##
@@ -44,11 +45,11 @@ class DRbDump
 
   def capture_drb_tcp
     Thread.new do
-      capp = Capp.live @device
+      capp = Capp.open @device
       capp.filter = 'ip and tcp'
 
       capp.loop do |packet|
-        @tcp_incoming.enq packet
+        @incoming_packets.enq packet
       end
     end
   end
@@ -58,11 +59,11 @@ class DRbDump
 
   def capture_ring_finger
     Thread.new do
-      capp = Capp.live @device
+      capp = Capp.open @device
       capp.filter = 'udp port 7647'
 
       capp.loop do |packet|
-        @udp_incoming.enq packet
+        @incoming_packets.enq packet
       end
     end
   end
@@ -94,38 +95,44 @@ class DRbDump
     payload = packet.payload
 
     return if payload.empty?
-
     return unless payload =~ /\A....\x04\x08/m
 
     time = packet.timestamp.strftime '%H:%M:%S.%6N'
 
     stream = StringIO.new payload
 
-    message = DRb::DRbMessage.new @drb_config
+    ref = @loader.load stream
 
-    ref = message.load(stream) || '(front)'
-    msg = message.load stream
-    argc = message.load stream
-    argv = Array.new argc do
-      message.load stream
+    case ref
+    when nil, String then
+      ref ||= '(front)'
+      msg = @loader.load stream
+      argc = @loader.load stream
+      argv = Array.new argc do
+        @loader.load stream
+      end
+      block = @loader.load stream
+
+      puts "%s %s:%d > %s:%d: %s.%s(%s)" % [
+        time,
+        packet.ipv4_header.source,      packet.tcp_header.source_port,
+        packet.ipv4_header.destination, packet.tcp_header.destination_port,
+        ref, msg, argv.join(', ')
+      ]
+    when true, false then
+      result = @loader.load stream
+
+      puts "%s %s:%d > %s:%d: success: %s result: %s" % [
+        time,
+        packet.ipv4_header.source,      packet.tcp_header.source_port,
+        packet.ipv4_header.destination, packet.tcp_header.destination_port,
+        ref, result
+      ]
+    else
+      # ignore
     end
-    block = message.load stream
-
-    puts "%s %s:%d > %s:%d: %s.%s(%s)" % [
-      time,
-      packet.ipv4_header.source,      packet.tcp_header.source_port,
-      packet.ipv4_header.destination, packet.tcp_header.destination_port,
-      ref, msg, argv.join(', ')
-    ]
   rescue DRb::DRbConnError
-    return unless ref && msg
-
-    puts "%s %s:%d > %s:%d: success: %s result: %s" % [
-      time,
-      packet.ipv4_header.source,      packet.tcp_header.source_port,
-      packet.ipv4_header.destination, packet.tcp_header.destination_port,
-      ref, msg
-    ]
+    # ignore
   end
 
   ##
@@ -133,14 +140,12 @@ class DRbDump
 
   def display_packets
     Thread.new do
-      while packet = @udp_incoming.deq do
-        display_ring_finger packet
-      end
-    end
-
-    Thread.new do
-      while packet = @tcp_incoming.deq do
-        display_drb packet
+      while packet = @incoming_packets.deq do
+        if packet.udp? then
+          display_ring_finger packet
+        else
+          display_drb packet
+        end
       end
     end
   end
