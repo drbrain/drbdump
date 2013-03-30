@@ -8,6 +8,7 @@ class TestDRbDump < MiniTest::Unit::TestCase
   RING_DUMP = File.expand_path '../ring.dump', __FILE__
 
   PING_PACKETS = Capp.open(PING_DUMP).loop.to_a
+  RING_PACKETS = Capp.open(RING_DUMP).loop.to_a
 
   def test_class_process_args_defaults
     options = DRbDump.process_args []
@@ -100,6 +101,18 @@ class TestDRbDump < MiniTest::Unit::TestCase
 
     expected = <<-EXPECTED
 20:01:45.927216 kault.53717 > kault.53714: (front).ping(1)
+    EXPECTED
+
+    assert_equal expected, out
+  end
+
+  def test_display_ring_finger
+    out, = capture_io do
+      drbdump.display_ring_finger RING_PACKETS.first
+    end
+
+    expected = <<-EXPECTED
+19:39:25.877246 find ring for druby://kault.jijo.segment7.net:53578 timeout 5
     EXPECTED
 
     assert_equal expected, out
