@@ -12,11 +12,20 @@ require 'thread'
 class DRbDump
 
   ##
+  # DRbDump error class
+
+  class Error < RuntimeError
+  end
+
+  ##
   # The version of DRbDump you are using
 
   VERSION = '1.0'
 
   TIMESTAMP_FORMAT = '%H:%M:%S.%6N' # :nodoc:
+
+  ##
+  # Queue of all incoming packets from Capp.
 
   attr_reader :incoming_packets
 
@@ -24,6 +33,22 @@ class DRbDump
   # A Resolv-compatible DNS resolver for looking up host names
 
   attr_accessor :resolver
+
+  ##
+  # Directory to chroot to after starting packet capture devices (which
+  # require root privileges)
+  #
+  # Note that you will need to either set up a custom resolver that excludes
+  # Resolv::Hosts or provide /etc/hosts in the chroot directory when setting
+  # the run_as_directory.
+
+  attr_accessor :run_as_directory
+
+  ##
+  # User to run as after starting packet capture devices (which require root
+  # privileges)
+
+  attr_accessor :run_as_user
 
   ##
   # Starts dumping DRb traffic.
@@ -47,6 +72,8 @@ class DRbDump
     @incoming_packets = Queue.new
     @loader           = DRb::DRbMessage.new @drb_config
     @resolver         = Resolv
+    @run_as_directory = nil
+    @run_as_user      = nil
   end
 
   ##
@@ -166,16 +193,54 @@ class DRbDump
   end
 
   ##
+  # Drop privileges
+
+  def drop_privileges
+    return unless Process.uid.zero? and Process.euid.zero?
+    return unless @run_as_user or @run_as_directory
+
+    raise DRbDump::Error, 'chroot without dropping root is insecure' if
+      @run_as_directory and not @run_as_user
+
+    require 'etc'
+
+    begin
+      pw = Etc.getpwnam @run_as_user
+    rescue ArgumentError
+      raise DRbDump::Error, "could not find user #{@run_as_user}"
+    end
+
+    if @run_as_directory then
+      begin
+        Dir.chroot @run_as_directory
+        Dir.chdir '/'
+      rescue Errno::ENOENT
+        raise DRbDump::Error,
+          "could not chroot or chdir to #{@run_as_directory}"
+      end
+    end
+
+    begin
+      Process.gid = pw.gid
+      Process.uid = pw.uid
+    rescue Errno::EPERM
+      raise DRbDump::Error, "unable to drop privileges to #{@run_as_user}"
+    end
+
+    true
+  end
+
+  ##
   # Captures packets and displays them on the screen.
 
   def run
-    display = display_packets
-
     capture_ring_finger
 
     capture_drb_tcp
 
-    display.join
+    drop_privileges
+
+    display_packets.join
   end
 
 end
