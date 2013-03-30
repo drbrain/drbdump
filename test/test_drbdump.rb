@@ -10,6 +10,58 @@ class TestDRbDump < MiniTest::Unit::TestCase
 
   PING_PACKETS = Capp.open(PING_DUMP).loop.to_a
 
+  def test_class_process_args_defaults
+    options = DRbDump.process_args []
+
+    assert_equal nil,  options[:device]
+    assert_equal true, options[:resolve_names]
+    assert_equal nil,  options[:run_as_directory]
+    assert_equal nil,  options[:run_as_user]
+  end
+
+  def test_class_process_args_device
+    options = DRbDump.process_args %w[--interface lo0]
+
+    assert_equal 'lo0', options[:device]
+
+    options = DRbDump.process_args %w[-i lo0]
+
+    assert_equal 'lo0', options[:device]
+  end
+
+  def test_class_process_args_invalid
+    e = nil
+    out, err = capture_io do
+      e = assert_raises SystemExit do
+        DRbDump.process_args %w[--no-such-option]
+      end
+    end
+
+    assert_empty out
+    assert_match 'Usage', err
+    assert_match 'no-such-option', err
+
+    assert_equal 1, e.status
+  end
+
+  def test_class_process_args_resolve_names
+    options = DRbDump.process_args %w[-n]
+
+    refute options[:resolve_names]
+  end
+
+  def test_class_process_args_run_as_directory
+    options = DRbDump.process_args %w[--run-as-directory /]
+
+    assert_equal '/', options[:run_as_directory]
+  end
+
+  def test_class_process_args_run_as_user
+    options = DRbDump.process_args %w[--run-as-user nobody]
+
+    assert_equal 'nobody', options[:run_as_user]
+  end
+
   def test_capture_drb_tcp
     drbdump PING_DUMP
 
@@ -66,8 +118,8 @@ class TestDRbDump < MiniTest::Unit::TestCase
     assert_equal expected, out
   end
 
-  def drbdump file = nil
-    @drbdump = DRbDump.new file
+  def drbdump file = PING_DUMP
+    @drbdump = DRbDump.new :device => file
     @drbdump.resolver = resolver
     @drbdump
   end

@@ -2,6 +2,7 @@
 
 require 'capp'
 require 'drb'
+require 'optparse'
 require 'resolv'
 require 'stringio'
 require 'thread'
@@ -51,12 +52,84 @@ class DRbDump
   attr_accessor :run_as_user
 
   ##
+  # Converts command-line arguments +argv+ into an options Hash
+
+  def self.process_args argv
+    options = {
+      device:           nil,
+      resolve_names:    true,
+      run_as_directory: nil,
+      run_as_user:      nil,
+    }
+
+    op = OptionParser.new do |opt|
+      opt.program_name = File.basename $0
+      opt.version = VERSION
+      opt.release = nil
+      opt.banner = <<-BANNER
+Usage: #{opt.program_name} [options]
+
+  drbdump dumps DRb traffic from your local network.
+
+  drbdump understands TCP traffic and Rinda broadcast queries.
+      BANNER
+
+      opt.separator nil
+
+      opt.on('-i', '--interface INTERFACE',
+             'The interface to listen on or a tcpdump',
+             'packet capture file',
+             "\n",
+             'The tcpdump default interface is also the',
+             'drbdump default') do |interface|
+        options[:device] = interface
+      end
+
+      opt.separator nil
+
+      opt.on('-n', 'Disable name resolution') do |do_not_resolve_names|
+        options[:resolve_names] = !do_not_resolve_names
+      end
+
+      opt.separator nil
+
+      opt.on(      '--run-as-directory DIRECTORY',
+             'chroot to the given directory after',
+             'starting packet capture',
+             "\n",
+             'Note that you must disable name resolution',
+             'or provide /etc/hosts in the chroot',
+             'directory') do |directory|
+        options[:run_as_directory] = directory
+      end
+
+      opt.separator nil
+
+      opt.on('-Z', '--run-as-user USER',
+             'Drop root privileges and run as the',
+             'given user') do |user|
+        options[:run_as_user] = user
+      end
+    end
+
+    op.parse! argv
+
+    options
+  rescue OptionParser::ParseError => e
+    $stderr.puts op
+    $stderr.puts
+    $stderr.puts e.message
+
+    abort
+  end
+
+  ##
   # Starts dumping DRb traffic.
 
   def self.run argv = ARGV
-    device = argv.shift || Capp.default_device_name
+    options = process_args argv
 
-    new(device).run
+    new(options).run
   end
 
   ##
@@ -65,15 +138,14 @@ class DRbDump
   #
   # See also Capp::default_device_name.
 
-  def initialize device = Capp.default_device_name
-    @device = device
-
+  def initialize options
+    @device           = options[:device] || Capp.default_device_name
     @drb_config       = DRb::DRbServer.make_config
     @incoming_packets = Queue.new
     @loader           = DRb::DRbMessage.new @drb_config
-    @resolver         = Resolv
-    @run_as_directory = nil
-    @run_as_user      = nil
+    @resolver         = Resolv if options[:resolve_names]
+    @run_as_directory = options[:run_as_directory]
+    @run_as_user      = options[:run_as_user]
   end
 
   ##
