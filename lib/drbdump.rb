@@ -134,7 +134,9 @@ class DRbDump
     end
     block = @loader.load stream
 
-    puts "%s %s > %s: %s.%s(%s)" % [
+    argv << '&block' if block
+
+    puts '%s %s > %s: %s.%s(%s)' % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
       packet.source, packet.destination,
       ref, msg, argv.join(', ')
