@@ -90,6 +90,8 @@ class TestDRbDump < MiniTest::Unit::TestCase
     EXPECTED
 
     assert_equal expected, out
+
+    assert_equal 1, @drbdump.drb_packet_count
   end
 
   def test_display_drb_send_msg
@@ -104,6 +106,8 @@ class TestDRbDump < MiniTest::Unit::TestCase
     EXPECTED
 
     assert_equal expected, out
+
+    assert_equal 1, @drbdump.drb_packet_count
   end
 
   def test_display_ring_finger
@@ -116,6 +120,8 @@ class TestDRbDump < MiniTest::Unit::TestCase
     EXPECTED
 
     assert_equal expected, out
+
+    assert_equal 1, @drbdump.rinda_packet_count
   end
 
   def test_start_capture
@@ -134,6 +140,8 @@ class TestDRbDump < MiniTest::Unit::TestCase
     assert packet.udp?
 
     assert_equal Rinda::Ring_PORT, packet.udp_header.destination_port
+
+    assert_equal RING_PACKETS.length, @drbdump.total_packet_count
   end
 
   def drbdump file = PING_DUMP

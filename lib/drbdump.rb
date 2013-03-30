@@ -27,6 +27,11 @@ class DRbDump
   TIMESTAMP_FORMAT = '%H:%M:%S.%6N' # :nodoc:
 
   ##
+  # Number of DRb packets seen
+
+  attr_reader :drb_packet_count
+
+  ##
   # Queue of all incoming packets from Capp.
 
   attr_reader :incoming_packets
@@ -35,6 +40,11 @@ class DRbDump
   # A Resolv-compatible DNS resolver for looking up host names
 
   attr_accessor :resolver
+
+  ##
+  # Number of Rinda packets seen
+
+  attr_reader :rinda_packet_count
 
   ##
   # Directory to chroot to after starting packet capture devices (which
@@ -51,6 +61,11 @@ class DRbDump
   # privileges)
 
   attr_accessor :run_as_user
+
+  ##
+  # Number of packets seen, including non-DRb traffic
+
+  attr_reader :total_packet_count
 
   ##
   # Converts command-line arguments +argv+ into an options Hash
@@ -140,13 +155,16 @@ Usage: #{opt.program_name} [options]
   # See also Capp::default_device_name.
 
   def initialize options
-    @device           = options[:device] || Capp.default_device_name
-    @drb_config       = DRb::DRbServer.make_config
-    @incoming_packets = Queue.new
-    @loader           = DRb::DRbMessage.new @drb_config
-    @resolver         = Resolv if options[:resolve_names]
-    @run_as_directory = options[:run_as_directory]
-    @run_as_user      = options[:run_as_user]
+    @device             = options[:device] || Capp.default_device_name
+    @drb_config         = DRb::DRbServer.make_config
+    @drb_packet_count   = 0
+    @incoming_packets   = Queue.new
+    @loader             = DRb::DRbMessage.new @drb_config
+    @resolver           = Resolv if options[:resolve_names]
+    @rinda_packet_count = 0
+    @run_as_directory   = options[:run_as_directory]
+    @run_as_user        = options[:run_as_user]
+    @total_packet_count = 0
   end
 
   ##
@@ -169,6 +187,8 @@ Usage: #{opt.program_name} [options]
     time = packet.timestamp.strftime TIMESTAMP_FORMAT
     (_, tell), timeout = obj
     puts "#{time} find ring for #{tell.__drburi} timeout #{timeout}"
+
+    @rinda_packet_count += 1
   rescue
   end
 
@@ -191,8 +211,10 @@ Usage: #{opt.program_name} [options]
     when true, false then
       display_drb_recv packet, first_chunk, stream
     else
-      # ignore
+      return # ignore
     end
+
+    @drb_packet_count += 1
   rescue DRb::DRbConnError
     # ignore
   end
@@ -235,7 +257,7 @@ Usage: #{opt.program_name} [options]
   # Displays each captured packet.
 
   def display_packets
-    Thread.new do
+    @display_thread = Thread.new do
       while packet = @incoming_packets.deq do
         if packet.udp? then
           display_ring_finger packet
@@ -295,14 +317,28 @@ Usage: #{opt.program_name} [options]
     start_capture capp
 
     display_packets.join
+  rescue Interrupt
+    capp.stop
+
+    @incoming_packets.enq nil
+
+    @display_thread.join
+
+    puts # clear ^C
+    puts "#{@drb_packet_count} DRb packets received"
+    puts "#{@rinda_packet_count} Rinda packets received"
+    puts "#{@total_packet_count} total packets captured"
+
+    exit
   end
 
   ##
   # Captures DRb packets and feeds them to the incoming_packets queue
 
   def start_capture capp
-    Thread.new do
+    @capture_thread = Thread.new do
       capp.loop do |packet|
+        @total_packet_count += 1
         @incoming_packets.enq packet
       end
     end
