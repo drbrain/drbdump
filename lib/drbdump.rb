@@ -4,6 +4,7 @@ require 'capp'
 require 'drb'
 require 'optparse'
 require 'resolv'
+require 'rinda/ring'
 require 'stringio'
 require 'thread'
 
@@ -149,31 +150,12 @@ Usage: #{opt.program_name} [options]
   end
 
   ##
-  # Captures DRb TCP packets
+  # Creates a new Capp instance that packets DRb and Rinda packets
 
-  def capture_drb_tcp
-    Thread.new do
-      capp = Capp.open @device
-      capp.filter = 'tcp'
-
-      capp.loop do |packet|
-        @incoming_packets.enq packet
-      end
-    end
-  end
-
-  ##
-  # Captures RingFinger broadcasts
-
-  def capture_ring_finger
-    Thread.new do
-      capp = Capp.open @device
-      capp.filter = 'udp port 7647'
-
-      capp.loop do |packet|
-        @incoming_packets.enq packet
-      end
-    end
+  def create_capp # :nodoc:
+    capp = Capp.open @device
+    capp.filter = "tcp or (udp port #{Rinda::Ring_PORT})"
+    capp
   end
 
   ##
@@ -306,13 +288,24 @@ Usage: #{opt.program_name} [options]
   # Captures packets and displays them on the screen.
 
   def run
-    capture_ring_finger
-
-    capture_drb_tcp
+    capp = create_capp
 
     drop_privileges
 
+    start_capture capp
+
     display_packets.join
+  end
+
+  ##
+  # Captures DRb packets and feeds them to the incoming_packets queue
+
+  def start_capture capp
+    Thread.new do
+      capp.loop do |packet|
+        @incoming_packets.enq packet
+      end
+    end
   end
 
 end

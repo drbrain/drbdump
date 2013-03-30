@@ -1,6 +1,5 @@
 require 'minitest/autorun'
 require 'drbdump'
-require 'rinda/ring'
 require 'tempfile'
 
 class TestDRbDump < MiniTest::Unit::TestCase
@@ -62,26 +61,14 @@ class TestDRbDump < MiniTest::Unit::TestCase
     assert_equal 'nobody', options[:run_as_user]
   end
 
-  def test_capture_drb_tcp
-    drbdump PING_DUMP
-
-    @drbdump.capture_drb_tcp.join
-
-    refute_empty @drbdump.incoming_packets
-
-    packet = @drbdump.incoming_packets.deq
-
-    assert packet.tcp?
-  end
-
-  def test_capture_ring_finger
+  def test_create_capp
     drbdump RING_DUMP
 
-    @drbdump.capture_ring_finger.join
+    packets = @drbdump.create_capp.loop.to_a
 
-    refute_empty @drbdump.incoming_packets
+    refute_empty packets
 
-    packet = @drbdump.incoming_packets.deq
+    packet = packets.first
 
     assert packet.udp?
 
@@ -116,6 +103,24 @@ class TestDRbDump < MiniTest::Unit::TestCase
     EXPECTED
 
     assert_equal expected, out
+  end
+
+  def test_start_capture
+    drbdump RING_DUMP
+
+    capp = @drbdump.create_capp
+
+    thread = @drbdump.start_capture capp
+
+    thread.join
+
+    refute_empty @drbdump.incoming_packets
+
+    packet = @drbdump.incoming_packets.deq
+
+    assert packet.udp?
+
+    assert_equal Rinda::Ring_PORT, packet.udp_header.destination_port
   end
 
   def drbdump file = PING_DUMP
