@@ -2,6 +2,7 @@
 
 require 'capp'
 require 'drb'
+require 'resolv'
 require 'stringio'
 require 'thread'
 
@@ -18,6 +19,11 @@ class DRbDump
   TIMESTAMP_FORMAT = '%H:%M:%S.%6N' # :nodoc:
 
   attr_reader :incoming_packets
+
+  ##
+  # A Resolv-compatible DNS resolver for looking up host names
+
+  attr_accessor :resolver
 
   ##
   # Starts dumping DRb traffic.
@@ -40,6 +46,7 @@ class DRbDump
     @drb_config       = DRb::DRbServer.make_config
     @incoming_packets = Queue.new
     @loader           = DRb::DRbMessage.new @drb_config
+    @resolver         = Resolv
   end
 
   ##
@@ -117,7 +124,7 @@ class DRbDump
 
     puts "%s %s > %s: success: %s result: %s" % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
-      packet.source, packet.destination,
+      packet.source(@resolver), packet.destination(@resolver),
       success, result
     ]
   end
@@ -138,7 +145,7 @@ class DRbDump
 
     puts '%s %s > %s: %s.%s(%s)' % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
-      packet.source, packet.destination,
+      packet.source(@resolver), packet.destination(@resolver),
       ref, msg, argv.join(', ')
     ]
   end

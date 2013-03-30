@@ -1,6 +1,7 @@
 require 'minitest/autorun'
 require 'drbdump'
 require 'rinda/ring'
+require 'tempfile'
 
 class TestDRbDump < MiniTest::Unit::TestCase
 
@@ -10,25 +11,25 @@ class TestDRbDump < MiniTest::Unit::TestCase
   PING_PACKETS = Capp.open(PING_DUMP).loop.to_a
 
   def test_capture_drb_tcp
-    drbdump = DRbDump.new PING_DUMP
+    drbdump PING_DUMP
 
-    drbdump.capture_drb_tcp.join
+    @drbdump.capture_drb_tcp.join
 
-    refute_empty drbdump.incoming_packets
+    refute_empty @drbdump.incoming_packets
 
-    packet = drbdump.incoming_packets.deq
+    packet = @drbdump.incoming_packets.deq
 
     assert packet.tcp?
   end
 
   def test_capture_ring_finger
-    drbdump = DRbDump.new RING_DUMP
+    drbdump RING_DUMP
 
-    drbdump.capture_ring_finger.join
+    @drbdump.capture_ring_finger.join
 
-    refute_empty drbdump.incoming_packets
+    refute_empty @drbdump.incoming_packets
 
-    packet = drbdump.incoming_packets.deq
+    packet = @drbdump.incoming_packets.deq
 
     assert packet.udp?
 
@@ -40,14 +41,12 @@ class TestDRbDump < MiniTest::Unit::TestCase
       packet.payload =~ /\x00\x03\x04\x08T/
     end
 
-    drbdump = DRbDump.new nil
-
     out, = capture_io do
       drbdump.display_drb send_msg
     end
 
     expected = <<-EXPECTED
-20:01:45.927677 10.101.28.77:53714 > 10.101.28.77:53717: success: true result: 1
+20:01:45.927677 kault.53714 > kault.53717: success: true result: 1
     EXPECTED
 
     assert_equal expected, out
@@ -56,17 +55,32 @@ class TestDRbDump < MiniTest::Unit::TestCase
   def test_display_drb_send_msg
     send_msg = PING_PACKETS.find { |packet| packet.payload =~ /ping/ }
 
-    drbdump = DRbDump.new nil
-
     out, = capture_io do
       drbdump.display_drb send_msg
     end
 
     expected = <<-EXPECTED
-20:01:45.927216 10.101.28.77:53717 > 10.101.28.77:53714: (front).ping(1)
+20:01:45.927216 kault.53717 > kault.53714: (front).ping(1)
     EXPECTED
 
     assert_equal expected, out
+  end
+
+  def drbdump file = nil
+    @drbdump = DRbDump.new file
+    @drbdump.resolver = resolver
+    @drbdump
+  end
+
+  def resolver
+    Tempfile.open 'hosts' do |io|
+      io.puts '10.101.28.77 kault'
+      io.flush
+
+      resolver = Resolv::Hosts.new io.path
+      resolver.getname '10.101.28.77' # initialize
+      resolver
+    end
   end
 
 end
