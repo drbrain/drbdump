@@ -78,14 +78,9 @@ class DRbDump
   def display_ring_finger packet
     obj = Marshal.load packet.payload
 
-    if Array === obj and Array === obj.first and
-       obj.first.first == :lookup_ring then
-      time = packet.timestamp.strftime TIMESTAMP_FORMAT
-      (_, tell), timeout = obj
-      puts "#{time} find ring for #{tell.__drburi} timeout #{timeout}"
-    else
-      p obj
-    end
+    time = packet.timestamp.strftime TIMESTAMP_FORMAT
+    (_, tell), timeout = obj
+    puts "#{time} find ring for #{tell.__drburi} timeout #{timeout}"
   rescue
   end
 
