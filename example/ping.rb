@@ -1,69 +1,140 @@
 require 'drb'
+require 'optparse'
 
-class Responder
-  def ping i
-    i
-  end
-end
+class Ping
 
-def ping uri
-  seq = 0
-
-  while seq += 1 do
-    remote = DRb::DRbObject.new_with_uri uri
-
-    begin
-      start = Time.now
-      remote.ping seq
-
-      elapsed = (Time.now - start) * 1000
-
-      puts "from %s: seq=%d time=%0.3f ms" % [uri, seq, elapsed]
-
-      sleep 1
-    rescue DRb::DRbConnError
-      puts "connection failed"
+  class Responder
+    def ping i
+      i
     end
   end
-end
 
-DRb.start_service nil, Responder.new
+  def self.process_args argv
+    options = {
+      flood:  false,
+      server: false,
+      client: nil,
+    }
 
-uri = ARGV.shift
+    op = OptionParser.new do |opt|
+      opt.banner = <<-BANNER
+Usage: ping.rb [options] [druby://...]
 
-case uri
-when 'server' then
-  puts DRb.uri
+  With no arguments, spawns a child process and sends DRb messages to it
 
-  DRb.thread.join
-when /^druby:/ then
-  ping uri
-when String then
-  abort <<-ABORT
-#{$0} server
+  To ping across multiple machines start a server with:
 
-or
+    ping.rb --server
 
-#{$0} druby://...
+  And submit the given URI to a client:
 
-or
+    ping.rb druby://...
+      BANNER
 
-#{$0}
-  ABORT
-else
-  uri = DRb.uri
+      opt.separator nil
+      opt.separator 'Options:'
 
-  pid = fork do
-    DRb.stop_service
+      opt.on('--flood',
+             'Send packets as fast as possible',
+             'Prints one . per 1000 messages') do
+        options[:flood] = true
+      end
 
-    DRb.start_service
+      opt.on('--server',
+             'Run only as a server') do |value|
+        options[:server] = true
+      end
+    end
 
-    ping uri
+    op.parse! argv
+
+    raise OptionParser::ParseError, '--server with --flood is nonsense' if
+      options[:server] and options[:flood]
+
+    options[:client] = argv.shift if /\Adruby:/ =~ argv.first
+
+    raise OptionParser::ParseError, '--server with client URI is nonsense' if
+      options[:server] and options[:client]
+
+    options
+  rescue OptionParser::ParseError => e
+    $stderr.puts op
+    $stderr.puts
+    $stderr.puts e.message
+
+    abort
   end
 
-  trap 'INT'  do Process.kill 'INT',  pid end
-  trap 'TERM' do Process.kill 'TERM', pid end
+  def self.run argv = ARGV
+    options = process_args argv
 
-  Process.wait pid
+    ping = new options
+
+    ping.run
+  end
+
+  def initialize options
+    @client = options[:client]
+    @flood  = options[:flood]
+    @server = options[:server]
+  end
+
+  def loopback
+    uri = DRb.uri
+
+    pid = fork do
+      DRb.stop_service
+
+      DRb.start_service
+
+      ping uri
+    end
+
+    trap 'INT'  do Process.kill 'INT',  pid end
+    trap 'TERM' do Process.kill 'TERM', pid end
+
+    Process.wait pid
+  end
+
+  def ping uri
+    remote = DRb::DRbObject.new_with_uri uri
+    seq = 0
+
+    while seq += 1 do
+      begin
+        start = Time.now
+        remote.ping seq
+
+        elapsed = (Time.now - start) * 1000
+
+        if @flood then
+          print '.' if seq % 1000 == 0
+        else
+          puts "from %s: seq=%d time=%0.3f ms" % [uri, seq, elapsed]
+
+          sleep 1
+        end
+      rescue DRb::DRbConnError
+        puts "connection failed"
+      end
+    end
+  end
+
+  def run
+    DRb.start_service nil, Responder.new
+
+    if @server then
+      puts DRb.uri
+
+      DRb.thread.join
+    elsif @client then
+      ping @client
+    else
+      loopback
+    end
+  end
+
 end
+
+Ping.run ARGV if $0 == __FILE__
 
