@@ -107,10 +107,10 @@ class TestDRbDump < MiniTest::Unit::TestCase
     expected = <<-EXPECTED
 22:19:38.279650 kault.56128 > kault.56126: (front).ping(1)
 22:19:38.280108 kault.56126 > kault.56128: success: true result: 1
-22:19:38.280472 kault.56126 > kault.56128: success: false result: connection closed
+22:19:38.280472 kault.56126 > kault.56128: success: false result: #<DRb::DRbConnError: connection closed>
 22:19:38.280713 kault.56129 > kault.56126: (front).ping(2)
 22:19:38.280973 kault.56126 > kault.56129: success: true result: 2
-22:19:38.281197 kault.56126 > kault.56129: success: false result: connection closed
+22:19:38.281197 kault.56126 > kault.56129: success: false result: #<DRb::DRbConnError: connection closed>
     EXPECTED
 
     assert_equal expected, out

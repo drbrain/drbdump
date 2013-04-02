@@ -257,7 +257,7 @@ Usage: #{opt.program_name} [options]
   def display_drb_recv packet, success, stream
     result = @loader.load stream
 
-    puts "%s %s > %s: success: %s result: %s" % [
+    puts "%s %s > %s: success: %s result: %p" % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
       packet.source(@resolver), packet.destination(@resolver),
       success, result
