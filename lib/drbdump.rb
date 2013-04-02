@@ -179,7 +179,13 @@ Usage: #{opt.program_name} [options]
 
   def create_capp # :nodoc:
     capp = Capp.open @device
-    capp.filter = "tcp or (udp port #{Rinda::Ring_PORT})"
+
+    capp.filter = <<-FILTER
+      (tcp and (((ip[2:2] - ((ip[0]&0xf)<<2)) - ((tcp[12]&0xf0)>>2)) != 0)) or
+      (tcp[tcpflags] & (tcp-fin|tcp-rst) != 0) or
+      (udp port #{Rinda::Ring_PORT})
+    FILTER
+
     capp
   end
 
@@ -349,8 +355,15 @@ Usage: #{opt.program_name} [options]
 
   def start_capture capp
     @capture_thread = Thread.new do
+      fin_or_rst = Capp::TCP_FIN | Capp::TCP_RST
+
       capp.loop do |packet|
         @total_packet_count += 1
+
+        if packet.tcp? and 0 != packet.tcp_header.flags & fin_or_rst then
+          @drb_streams.delete packet.source
+          next
+        end
 
         next if @drb_streams[packet.source] == false
 

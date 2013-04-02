@@ -4,13 +4,10 @@ require 'tempfile'
 
 class TestDRbDump < MiniTest::Unit::TestCase
 
-  HTTP_DUMP = File.expand_path '../http.dump', __FILE__
-  PING_DUMP = File.expand_path '../ping.dump', __FILE__
-  RING_DUMP = File.expand_path '../ring.dump', __FILE__
-
-  HTTP_PACKETS = Capp.open(HTTP_DUMP).loop.to_a
-  PING_PACKETS = Capp.open(PING_DUMP).loop.to_a
-  RING_PACKETS = Capp.open(RING_DUMP).loop.to_a
+  HTTP_DUMP = File.expand_path '../http.dump',    __FILE__
+  PING_DUMP = File.expand_path '../ping.dump',    __FILE__
+  RING_DUMP = File.expand_path '../ring.dump',    __FILE__
+  FIN_DUMP  = File.expand_path '../drb_fin.dump', __FILE__
 
   def test_class_process_args_defaults
     options = DRbDump.process_args []
@@ -81,11 +78,11 @@ class TestDRbDump < MiniTest::Unit::TestCase
   def test_display_drb_http
     drbdump
 
-    #assert_silent do
-      HTTP_PACKETS.each do |packet|
+    assert_silent do
+      packets(HTTP_DUMP).each do |packet|
         @drbdump.display_drb packet
       end
-    #end
+    end
 
     assert_equal 0, @drbdump.drb_packet_count
 
@@ -98,7 +95,7 @@ class TestDRbDump < MiniTest::Unit::TestCase
   end
 
   def test_display_drb_recv_msg
-    send_msg = PING_PACKETS.find do |packet|
+    send_msg = packets(PING_DUMP).find do |packet|
       packet.payload =~ /\x00\x03\x04\x08T/
     end
 
@@ -116,7 +113,7 @@ class TestDRbDump < MiniTest::Unit::TestCase
   end
 
   def test_display_drb_send_msg
-    send_msg = PING_PACKETS.find { |packet| packet.payload =~ /ping/ }
+    send_msg = packets(PING_DUMP).find { |packet| packet.payload =~ /ping/ }
 
     out, = capture_io do
       drbdump.display_drb send_msg
@@ -133,7 +130,7 @@ class TestDRbDump < MiniTest::Unit::TestCase
 
   def test_display_ring_finger
     out, = capture_io do
-      drbdump.display_ring_finger RING_PACKETS.first
+      drbdump.display_ring_finger packets(RING_DUMP).first
     end
 
     expected = <<-EXPECTED
@@ -162,13 +159,32 @@ class TestDRbDump < MiniTest::Unit::TestCase
 
     assert_equal Rinda::Ring_PORT, packet.udp_header.destination_port
 
-    assert_equal RING_PACKETS.length, @drbdump.total_packet_count
+    assert_equal packets(RING_DUMP).count, @drbdump.total_packet_count
+  end
+
+  def test_start_capture_rst_fin
+    drbdump FIN_DUMP
+
+    packet = packets(FIN_DUMP).first
+    @drbdump.drb_streams[packet.source] = true
+
+    capp = @drbdump.create_capp
+
+    thread = @drbdump.start_capture capp
+
+    thread.join
+
+    assert_empty @drbdump.drb_streams
   end
 
   def drbdump file = PING_DUMP
     @drbdump = DRbDump.new :device => file
     @drbdump.resolver = resolver
     @drbdump
+  end
+
+  def packets file
+    Capp.open(file).loop
   end
 
   def resolver
