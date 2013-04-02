@@ -1,6 +1,30 @@
 require 'drb'
 require 'optparse'
 
+module Statistics
+  refine Array do
+    def sum
+      inject :+
+    end
+
+    def average
+      sum / length.to_f
+    end
+
+    def sample_variance
+      avg = average
+      sum = inject { |sum, i| sum + (i - avg) ** 2 }
+      1 / length.to_f * sum
+    end
+
+    def stddev
+      Math.sqrt sample_variance
+    end
+  end
+end
+
+using Statistics
+
 class Ping
 
   class Responder
@@ -11,10 +35,14 @@ class Ping
 
   def self.process_args argv
     options = {
-      flood:  false,
-      server: false,
-      client: nil,
+      client:   nil,
+      count:    nil,
+      flood:    false,
+      interval: 1,
+      server:   false,
     }
+
+    interval_set = false
 
     op = OptionParser.new do |opt|
       opt.banner = <<-BANNER
@@ -34,13 +62,24 @@ Usage: ping.rb [options] [druby://...]
       opt.separator nil
       opt.separator 'Options:'
 
-      opt.on('--flood',
+      opt.on('-c', '--count COUNT', Integer,
+             'Number of packets to send') do |count|
+        options[:count] = count
+      end
+
+      opt.on('-f', '--flood',
              'Send packets as fast as possible',
              'Prints one . per 1000 messages') do
         options[:flood] = true
       end
 
-      opt.on('--server',
+      opt.on('-i', '--interval SECONDS', Float,
+             'Time between non-flood packets') do |interval|
+        options[:interval] = interval
+        interval_set = true
+      end
+
+      opt.on(      '--server',
              'Run only as a server') do |value|
         options[:server] = true
       end
@@ -48,8 +87,14 @@ Usage: ping.rb [options] [druby://...]
 
     op.parse! argv
 
+    raise OptionParser::ParseError, '--flood with --interval is nonsense' if
+      options[:flood] and interval_set
+
     raise OptionParser::ParseError, '--server with --flood is nonsense' if
       options[:server] and options[:flood]
+
+    raise OptionParser::ParseError, '--server with --count is nonsense' if
+      options[:server] and options[:count]
 
     options[:client] = argv.shift if /\Adruby:/ =~ argv.first
 
@@ -74,9 +119,72 @@ Usage: ping.rb [options] [druby://...]
   end
 
   def initialize options
-    @client = options[:client]
-    @flood  = options[:flood]
-    @server = options[:server]
+    @count    = options[:count]
+    @client   = options[:client]
+    @flood    = options[:flood]
+    @interval = options[:interval]
+    @server   = options[:server]
+  end
+
+  def delay_ping uri
+    remote = DRb::DRbObject.new_with_uri uri
+    times = []
+    seq = 0
+
+    until (seq += 1) > @count do
+      begin
+        start = Time.now
+        remote.ping seq
+        elapsed = (Time.now - start) * 1000
+
+        times << elapsed
+
+        puts "from %s: seq=%d time=%0.3f ms" % [uri, seq, elapsed]
+
+        sleep @interval
+      rescue DRb::DRbConnError
+        puts "connection failed"
+      end
+    end
+  ensure
+    puts
+    puts delay_statistics times
+  end
+
+  def delay_statistics times
+    min, max = times.minmax
+    avg      = times.average
+    stddev   = times.stddev
+
+    '%d messages, min/avg/max/stddev = %0.3f/%0.3f/%0.3f/%0.3f ms' % [
+      times.length, min, avg, max, stddev
+    ]
+  end
+
+  def flood_ping uri
+    remote = DRb::DRbObject.new_with_uri uri
+    start = Time.now
+    seq = 0
+
+    while (seq += 1) < @count do
+      begin
+        remote.ping seq
+
+        print '.' if seq % 1000 == 0
+      rescue DRb::DRbConnError
+        puts "connection failed"
+      end
+    end
+  ensure
+    elapsed = Time.now - start
+    puts
+    puts flood_statistics(elapsed, seq)
+  end
+
+  def flood_statistics elapsed, messages
+    '%d messages in %0.3f seconds, %d messages/sec' % [
+      messages, elapsed, messages / elapsed
+    ]
   end
 
   def loopback
@@ -97,26 +205,10 @@ Usage: ping.rb [options] [druby://...]
   end
 
   def ping uri
-    remote = DRb::DRbObject.new_with_uri uri
-    seq = 0
-
-    while seq += 1 do
-      begin
-        start = Time.now
-        remote.ping seq
-
-        elapsed = (Time.now - start) * 1000
-
-        if @flood then
-          print '.' if seq % 1000 == 0
-        else
-          puts "from %s: seq=%d time=%0.3f ms" % [uri, seq, elapsed]
-
-          sleep 1
-        end
-      rescue DRb::DRbConnError
-        puts "connection failed"
-      end
+    if @flood then
+      flood_ping uri
+    else
+      delay_ping uri
     end
   end
 
