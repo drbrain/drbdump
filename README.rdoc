@@ -6,11 +6,18 @@ bugs :: https://github.com/drbrain/drbdump/issues
 
 == Description
 
-drbdump is like tcpdump but for DRb.
+drbdump is like tcpdump but for DRb.  It allows you to inspect the message
+flow between your DRb processes.
 
-== Features and Problems
+== Features
 
-* FIX (list of features or problems)
+* Displays DRb message sends and responses
+* Displays Rinda service discovery announcements
+* Records basic DRb message statistics
+
+== Problems
+
+* Does not handle out-of-order or resent TCP packets
 
 == Synopsis
 
