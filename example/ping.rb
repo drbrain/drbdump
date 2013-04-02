@@ -17,7 +17,7 @@ module Statistics
       1 / length.to_f * sum
     end
 
-    def stddev
+    def σ
       Math.sqrt sample_variance
     end
   end
@@ -154,10 +154,10 @@ Usage: ping.rb [options] [druby://...]
   def delay_statistics times
     min, max = times.minmax
     avg      = times.average
-    stddev   = times.stddev
+    σ        = times.σ
 
     '%d messages, min/avg/max/stddev = %0.3f/%0.3f/%0.3f/%0.3f ms' % [
-      times.length, min, avg, max, stddev
+      times.length, min, avg, max, σ
     ]
   end
 
