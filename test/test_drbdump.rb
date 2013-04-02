@@ -94,6 +94,29 @@ class TestDRbDump < MiniTest::Unit::TestCase
     assert_equal expected, @drbdump.drb_streams
   end
 
+  def test_display_drb_incomplete
+    drbdump
+
+    out, = capture_io do
+      packets(FIN_DUMP).each do |packet|
+        @drbdump.display_drb packet
+      end
+    end
+
+    expected = <<-EXPECTED
+22:19:38.279650 kault.56128 > kault.56126: (front).ping(1)
+22:19:38.280108 kault.56126 > kault.56128: success: true result: 1
+22:19:38.280472 kault.56126 > kault.56128: success: false result: connection closed
+22:19:38.280713 kault.56129 > kault.56126: (front).ping(2)
+22:19:38.280973 kault.56126 > kault.56129: success: true result: 2
+22:19:38.281197 kault.56126 > kault.56129: success: false result: connection closed
+    EXPECTED
+
+    assert_equal expected, out
+
+    assert_empty @drbdump.incomplete_drb
+  end
+
   def test_display_drb_recv_msg
     send_msg = packets(PING_DUMP).find do |packet|
       packet.payload =~ /\x00\x03\x04\x08T/
@@ -167,6 +190,7 @@ class TestDRbDump < MiniTest::Unit::TestCase
 
     packet = packets(FIN_DUMP).first
     @drbdump.drb_streams[packet.source] = true
+    @drbdump.incomplete_drb[packet.source] = ''
 
     capp = @drbdump.create_capp
 
@@ -175,6 +199,7 @@ class TestDRbDump < MiniTest::Unit::TestCase
     thread.join
 
     assert_empty @drbdump.drb_streams
+    assert_empty @drbdump.incomplete_drb
   end
 
   def drbdump file = PING_DUMP

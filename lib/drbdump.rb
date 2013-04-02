@@ -1,5 +1,4 @@
-# coding: BINARY
-
+# coding: BINARY 
 require 'capp'
 require 'drb'
 require 'optparse'
@@ -39,7 +38,12 @@ class DRbDump
   ##
   # Queue of all incoming packets from Capp.
 
-  attr_reader :incoming_packets
+  attr_reader :incoming_packets # :nodoc:
+
+  ##
+  # Storage for incomplete DRb messages
+
+  attr_reader :incomplete_drb # :nodoc:
 
   ##
   # A Resolv-compatible DNS resolver for looking up host names
@@ -163,6 +167,7 @@ Usage: #{opt.program_name} [options]
     @device           = options[:device] || Capp.default_device_name
     @drb_config       = DRb::DRbServer.make_config
     @incoming_packets = Queue.new
+    @incomplete_drb   = {}
     @loader           = DRb::DRbMessage.new @drb_config
     @resolver         = Resolv if options[:resolve_names]
     @run_as_directory = options[:run_as_directory]
@@ -213,8 +218,12 @@ Usage: #{opt.program_name} [options]
 
     return if payload.empty?
 
-    unless /\A....\x04\x08/m =~ packet.payload then
-      @drb_streams[packet.source] = false
+    source = packet.source
+
+    if previous = @incomplete_drb.delete(source) then
+      payload = previous << payload
+    elsif /\A....\x04\x08/m !~ payload then
+      @drb_streams[source] = false
       return
     end
 
@@ -232,9 +241,14 @@ Usage: #{opt.program_name} [options]
     end
 
     @drb_packet_count += 1
-    @drb_streams[packet.source] = true
-  rescue DRb::DRbConnError
-    @drb_streams[packet.source] = false
+    @drb_streams[source] = true
+  rescue DRb::DRbConnError => e
+    case e.message
+    when "premature marshal format(can't read)" then
+      @incomplete_drb[source] = payload
+    else
+      @drb_streams[source] = false
+    end
   end
 
   ##
@@ -362,6 +376,7 @@ Usage: #{opt.program_name} [options]
 
         if packet.tcp? and 0 != packet.tcp_header.flags & fin_or_rst then
           @drb_streams.delete packet.source
+          @incomplete_drb.delete packet.source
           next
         end
 
