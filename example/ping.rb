@@ -36,7 +36,7 @@ class Ping
   def self.process_args argv
     options = {
       client:    nil,
-      count:     nil,
+      count:     Float::INFINITY,
       flood:     false,
       interval:  1,
       reconnect: false,
