@@ -268,7 +268,7 @@ Usage: #{opt.program_name} [options]
   # Writes a DRb packet for a message send to standard output.
 
   def display_drb_send packet, ref, stream # :nodoc:
-    ref ||= '(front)'
+    ref = ref ? ref.inspect : '(front)'
     msg = @loader.load stream
     argc = @loader.load stream
     argv = Array.new argc do
@@ -281,7 +281,7 @@ Usage: #{opt.program_name} [options]
     puts '%s %s > %s: %s.%s(%s)' % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
       packet.source(@resolver), packet.destination(@resolver),
-      ref, msg, argv.join(', ')
+      ref, msg, argv.map { |obj| obj.inspect }.join(', ')
     ]
   end
 

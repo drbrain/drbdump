@@ -4,10 +4,11 @@ require 'tempfile'
 
 class TestDRbDump < MiniTest::Unit::TestCase
 
+  ARG_DUMP  = File.expand_path '../arg.dump',     __FILE__
+  FIN_DUMP  = File.expand_path '../drb_fin.dump', __FILE__
   HTTP_DUMP = File.expand_path '../http.dump',    __FILE__
   PING_DUMP = File.expand_path '../ping.dump',    __FILE__
   RING_DUMP = File.expand_path '../ring.dump',    __FILE__
-  FIN_DUMP  = File.expand_path '../drb_fin.dump', __FILE__
 
   def test_class_process_args_defaults
     options = DRbDump.process_args []
@@ -136,14 +137,14 @@ class TestDRbDump < MiniTest::Unit::TestCase
   end
 
   def test_display_drb_send_msg
-    send_msg = packets(PING_DUMP).find { |packet| packet.payload =~ /ping/ }
+    send_msg = packets(ARG_DUMP).find { |packet| packet.payload =~ /ping/ }
 
     out, = capture_io do
       drbdump.display_drb send_msg
     end
 
     expected = <<-EXPECTED
-20:01:45.927216 kault.53717 > kault.53714: (front).ping(1)
+23:46:20.561659 kault.57317 > kault.57315: (front).ping(1, \"abcdefghij\")
     EXPECTED
 
     assert_equal expected, out
