@@ -149,21 +149,24 @@ Usage: ping.rb [options] [druby://...]
     seq = 0
 
     until (seq += 1) > @count do
+      message = 'success'
+      start = Time.now
+
       begin
-        start = Time.now
         @remote.ping seq, @data
-        elapsed = (Time.now - start) * 1000
-
-        times << elapsed
-
-        puts "from %s: seq=%d time=%0.3f ms" % [@uri, seq, elapsed]
-
-        reconnect
-
-        sleep @interval
-      rescue DRb::DRbConnError
-        puts "connection failed"
+      rescue DRb::DRbConnError => e
+        message = e
       end
+
+      elapsed = (Time.now - start) * 1000
+
+      times << elapsed
+
+      puts '%s %s: seq=%d time=%0.3f ms' % [@uri, message, seq, elapsed]
+
+      reconnect
+
+      sleep @interval
     end
   ensure
     puts
@@ -187,13 +190,12 @@ Usage: ping.rb [options] [druby://...]
     until (seq += 1) > @count do
       begin
         @remote.ping seq, @data
-
-        reconnect
-
-        print '.' if seq % 1000 == 0
       rescue DRb::DRbConnError
-        puts "connection failed"
       end
+
+      reconnect
+
+      print '.' if seq % 1000 == 0
     end
   ensure
     elapsed = Time.now - start
