@@ -6,3 +6,7 @@ Rakefile
 bin/drbdump
 example/ping.rb
 lib/drbdump.rb
+test/http.dump
+test/ping.dump
+test/ring.dump
+test/test_drbdump.rb

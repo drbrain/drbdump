@@ -32,6 +32,11 @@ class DRbDump
   attr_reader :drb_packet_count
 
   ##
+  # Tracks if TCP packets contain DRb content or not
+
+  attr_reader :drb_streams # :nodoc:
+
+  ##
   # Queue of all incoming packets from Capp.
 
   attr_reader :incoming_packets
@@ -155,15 +160,17 @@ Usage: #{opt.program_name} [options]
   # See also Capp::default_device_name.
 
   def initialize options
-    @device             = options[:device] || Capp.default_device_name
-    @drb_config         = DRb::DRbServer.make_config
+    @device           = options[:device] || Capp.default_device_name
+    @drb_config       = DRb::DRbServer.make_config
+    @incoming_packets = Queue.new
+    @loader           = DRb::DRbMessage.new @drb_config
+    @resolver         = Resolv if options[:resolve_names]
+    @run_as_directory = options[:run_as_directory]
+    @run_as_user      = options[:run_as_user]
+
     @drb_packet_count   = 0
-    @incoming_packets   = Queue.new
-    @loader             = DRb::DRbMessage.new @drb_config
-    @resolver           = Resolv if options[:resolve_names]
+    @drb_streams        = {}
     @rinda_packet_count = 0
-    @run_as_directory   = options[:run_as_directory]
-    @run_as_user        = options[:run_as_user]
     @total_packet_count = 0
   end
 
@@ -199,7 +206,11 @@ Usage: #{opt.program_name} [options]
     payload = packet.payload
 
     return if payload.empty?
-    return unless payload =~ /\A....\x04\x08/m
+
+    unless /\A....\x04\x08/m =~ packet.payload then
+      @drb_streams[packet.source] = false
+      return
+    end
 
     stream = StringIO.new payload
 
@@ -215,8 +226,9 @@ Usage: #{opt.program_name} [options]
     end
 
     @drb_packet_count += 1
+    @drb_streams[packet.source] = true
   rescue DRb::DRbConnError
-    # ignore
+    @drb_streams[packet.source] = false
   end
 
   ##
@@ -339,6 +351,9 @@ Usage: #{opt.program_name} [options]
     @capture_thread = Thread.new do
       capp.loop do |packet|
         @total_packet_count += 1
+
+        next if @drb_streams[packet.source] == false
+
         @incoming_packets.enq packet
       end
     end

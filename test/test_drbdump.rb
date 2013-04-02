@@ -4,9 +4,11 @@ require 'tempfile'
 
 class TestDRbDump < MiniTest::Unit::TestCase
 
+  HTTP_DUMP = File.expand_path '../http.dump', __FILE__
   PING_DUMP = File.expand_path '../ping.dump', __FILE__
   RING_DUMP = File.expand_path '../ring.dump', __FILE__
 
+  HTTP_PACKETS = Capp.open(HTTP_DUMP).loop.to_a
   PING_PACKETS = Capp.open(PING_DUMP).loop.to_a
   RING_PACKETS = Capp.open(RING_DUMP).loop.to_a
 
@@ -74,6 +76,25 @@ class TestDRbDump < MiniTest::Unit::TestCase
     assert packet.udp?
 
     assert_equal Rinda::Ring_PORT, packet.udp_header.destination_port
+  end
+
+  def test_display_drb_http
+    drbdump
+
+    #assert_silent do
+      HTTP_PACKETS.each do |packet|
+        @drbdump.display_drb packet
+      end
+    #end
+
+    assert_equal 0, @drbdump.drb_packet_count
+
+    expected = {
+      '17.149.160.49.80'   => false,
+      '10.101.28.77.53600' => false,
+    }
+
+    assert_equal expected, @drbdump.drb_streams
   end
 
   def test_display_drb_recv_msg
