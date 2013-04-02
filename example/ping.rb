@@ -35,11 +35,12 @@ class Ping
 
   def self.process_args argv
     options = {
-      client:   nil,
-      count:    nil,
-      flood:    false,
-      interval: 1,
-      server:   false,
+      client:    nil,
+      count:     nil,
+      flood:     false,
+      interval:  1,
+      reconnect: false,
+      server:    false,
     }
 
     interval_set = false
@@ -77,6 +78,11 @@ Usage: ping.rb [options] [druby://...]
              'Time between non-flood packets') do |interval|
         options[:interval] = interval
         interval_set = true
+      end
+
+      opt.on(      '--reconnect',
+             'Reconnect for each ping') do
+        options[:reconnect] = true
       end
 
       opt.on(      '--server',
@@ -119,27 +125,31 @@ Usage: ping.rb [options] [druby://...]
   end
 
   def initialize options
-    @count    = options[:count]
-    @client   = options[:client]
-    @flood    = options[:flood]
-    @interval = options[:interval]
-    @server   = options[:server]
+    @count     = options[:count]
+    @client    = options[:client]
+    @flood     = options[:flood]
+    @interval  = options[:interval]
+    @reconnect = options[:reconnect]
+    @remote    = nil
+    @server    = options[:server]
+    @uri       = nil
   end
 
-  def delay_ping uri
-    remote = DRb::DRbObject.new_with_uri uri
+  def delay_ping
     times = []
     seq = 0
 
     until (seq += 1) > @count do
       begin
         start = Time.now
-        remote.ping seq
+        @remote.ping seq
         elapsed = (Time.now - start) * 1000
 
         times << elapsed
 
-        puts "from %s: seq=%d time=%0.3f ms" % [uri, seq, elapsed]
+        puts "from %s: seq=%d time=%0.3f ms" % [@uri, seq, elapsed]
+
+        reconnect
 
         sleep @interval
       rescue DRb::DRbConnError
@@ -161,14 +171,15 @@ Usage: ping.rb [options] [druby://...]
     ]
   end
 
-  def flood_ping uri
-    remote = DRb::DRbObject.new_with_uri uri
+  def flood_ping
     start = Time.now
     seq = 0
 
-    while (seq += 1) < @count do
+    until (seq += 1) > @count do
       begin
-        remote.ping seq
+        @remote.ping seq
+
+        reconnect
 
         print '.' if seq % 1000 == 0
       rescue DRb::DRbConnError
@@ -178,7 +189,7 @@ Usage: ping.rb [options] [druby://...]
   ensure
     elapsed = Time.now - start
     puts
-    puts flood_statistics(elapsed, seq)
+    puts flood_statistics(elapsed, seq - 1)
   end
 
   def flood_statistics elapsed, messages
@@ -205,11 +216,20 @@ Usage: ping.rb [options] [druby://...]
   end
 
   def ping uri
+    @uri = uri
+    @remote = DRb::DRbObject.new_with_uri @uri
+
     if @flood then
-      flood_ping uri
+      flood_ping
     else
-      delay_ping uri
+      delay_ping
     end
+  end
+
+  def reconnect
+    return unless @reconnect
+
+    DRb::DRbConn.open @uri do [false, false] end
   end
 
   def run
