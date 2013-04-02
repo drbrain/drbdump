@@ -28,8 +28,8 @@ using Statistics
 class Ping
 
   class Responder
-    def ping i
-      i
+    def ping i, data
+      return i, data
     end
   end
 
@@ -41,6 +41,7 @@ class Ping
       interval:  1,
       reconnect: false,
       server:    false,
+      size:      0,
     }
 
     interval_set = false
@@ -78,6 +79,11 @@ Usage: ping.rb [options] [druby://...]
              'Time between non-flood packets') do |interval|
         options[:interval] = interval
         interval_set = true
+      end
+
+      opt.on('-s', '--packet-size SIZE', Integer,
+             'Size of extra data to send') do |size|
+        options[:size] = size
       end
 
       opt.on(      '--reconnect',
@@ -132,7 +138,10 @@ Usage: ping.rb [options] [druby://...]
     @reconnect = options[:reconnect]
     @remote    = nil
     @server    = options[:server]
+    @size      = options[:size]
     @uri       = nil
+
+    @data = ('a'..'z').cycle.first(@size).join
   end
 
   def delay_ping
@@ -142,7 +151,7 @@ Usage: ping.rb [options] [druby://...]
     until (seq += 1) > @count do
       begin
         start = Time.now
-        @remote.ping seq
+        @remote.ping seq, @data
         elapsed = (Time.now - start) * 1000
 
         times << elapsed
@@ -177,7 +186,7 @@ Usage: ping.rb [options] [druby://...]
 
     until (seq += 1) > @count do
       begin
-        @remote.ping seq
+        @remote.ping seq, @data
 
         reconnect
 
