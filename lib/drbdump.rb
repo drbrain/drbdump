@@ -1,4 +1,4 @@
-# coding: BINARY 
+# coding: BINARY
 require 'capp'
 require 'drb'
 require 'optparse'
