@@ -232,7 +232,7 @@ Usage: #{opt.program_name} [options]
     first_chunk = @loader.load stream
 
     case first_chunk
-    when nil, String then
+    when nil, Integer then
       display_drb_send packet, first_chunk, stream
     when true, false then
       display_drb_recv packet, first_chunk, stream
@@ -268,12 +268,10 @@ Usage: #{opt.program_name} [options]
   # Writes a DRb packet for a message send to standard output.
 
   def display_drb_send packet, ref, stream # :nodoc:
-    ref = ref ? ref.inspect : '(front)'
-    msg = @loader.load stream
-    argc = @loader.load stream
-    argv = Array.new argc do
-      @loader.load stream
-    end
+    ref   = '(front)' unless ref
+    msg   = @loader.load stream
+    argc  = @loader.load stream
+    argv  = argc.times.map do @loader.load stream end
     block = @loader.load stream
 
     argv << '&block' if block
