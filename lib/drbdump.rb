@@ -259,9 +259,11 @@ Usage: #{opt.program_name} [options]
 
     message = success ? 'success' : 'exception'
 
-    puts "%s %s < %s: %s: %p" % [
+    source, destination = resolve_addresses packet
+
+    puts '%s "druby://%s" < "druby://%s" %s: %p' % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
-      packet.destination(@resolver), packet.source(@resolver),
+      destination, source,
       message, result
     ]
   end
@@ -270,7 +272,7 @@ Usage: #{opt.program_name} [options]
   # Writes a DRb packet for a message send to standard output.
 
   def display_drb_send packet, ref, stream # :nodoc:
-    ref   = '(front)' unless ref
+    ref   = 'nil' unless ref
     msg   = @loader.load stream
     argc  = @loader.load stream
     argv  = argc.times.map do @loader.load stream end
@@ -278,9 +280,11 @@ Usage: #{opt.program_name} [options]
 
     argv << '&block' if block
 
-    puts '%s %s > %s: %s.%s(%s)' % [
+    source, destination = resolve_addresses packet
+
+    puts '%s "druby://%s" > ("druby://%s", %s).%s(%s)' % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
-      packet.source(@resolver), packet.destination(@resolver),
+      source, destination,
       ref, msg, argv.map { |obj| obj.inspect }.join(', ')
     ]
   end
@@ -336,6 +340,19 @@ Usage: #{opt.program_name} [options]
     end
 
     true
+  end
+
+  ##
+  # Resolves source and destination addresses in +packet+ for use in DRb URIs
+
+  def resolve_addresses packet
+    source = packet.source @resolver
+    source.sub!(/\.(\d+)$/, ':\1')
+
+    destination = packet.destination @resolver
+    destination.sub!(/\.(\d+)$/, ':\1')
+
+    return source, destination
   end
 
   ##
