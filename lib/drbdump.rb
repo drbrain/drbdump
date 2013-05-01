@@ -341,44 +341,6 @@ Usage: #{opt.program_name} [options]
   end
 
   ##
-  # Drop privileges
-
-  def drop_privileges
-    return unless Process.uid.zero? and Process.euid.zero?
-    return unless @run_as_user or @run_as_directory
-
-    raise DRbDump::Error, 'chroot without dropping root is insecure' if
-      @run_as_directory and not @run_as_user
-
-    require 'etc'
-
-    begin
-      pw = Etc.getpwnam @run_as_user
-    rescue ArgumentError
-      raise DRbDump::Error, "could not find user #{@run_as_user}"
-    end
-
-    if @run_as_directory then
-      begin
-        Dir.chroot @run_as_directory
-        Dir.chdir '/'
-      rescue Errno::ENOENT
-        raise DRbDump::Error,
-          "could not chroot or chdir to #{@run_as_directory}"
-      end
-    end
-
-    begin
-      Process.gid = pw.gid
-      Process.uid = pw.uid
-    rescue Errno::EPERM
-      raise DRbDump::Error, "unable to drop privileges to #{@run_as_user}"
-    end
-
-    true
-  end
-
-  ##
   # Resolves source and destination addresses in +packet+ for use in DRb URIs
 
   def resolve_addresses packet
