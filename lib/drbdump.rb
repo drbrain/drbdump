@@ -246,6 +246,8 @@ Usage: #{opt.program_name} [options]
     case e.message
     when "premature marshal format(can't read)" then
       @incomplete_drb[source] = payload
+    when /^too large packet / then
+      display_drb_too_large packet
     else
       @drb_streams[source] = false
     end
@@ -257,11 +259,17 @@ Usage: #{opt.program_name} [options]
   def display_drb_recv packet, success, stream
     result = @loader.load stream
 
+    result = if DRb::DRbObject === result then
+               "(\"druby://#{result.__drburi}\", #{result.__drbref})"
+             else
+               result.inspect
+             end
+
     message = success ? 'success' : 'exception'
 
     source, destination = resolve_addresses packet
 
-    puts '%s "druby://%s" < "druby://%s" %s: %p' % [
+    puts '%s %s < %s %s: %s' % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
       destination, source,
       message, result
@@ -282,10 +290,38 @@ Usage: #{opt.program_name} [options]
 
     source, destination = resolve_addresses packet
 
-    puts '%s "druby://%s" > ("druby://%s", %s).%s(%s)' % [
+    puts '%s %s > (%s, %s).%s(%s)' % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
       source, destination,
       ref, msg, argv.map { |obj| obj.inspect }.join(', ')
+    ]
+  end
+
+  ##
+  # Writes the start of a DRb stream from a packet that was too large to
+  # transmit.
+
+  def display_drb_too_large packet
+    load_limit = @drb_config[:load_limit]
+    rest = packet.payload
+
+    source, destination = resolve_addresses packet
+
+    size  = nil
+    valid = []
+
+    loop do
+      size, rest = rest.unpack 'Na*'
+
+      break if load_limit < size
+
+      valid << Marshal.load(rest.slice!(0, size)).inspect
+    end
+
+    puts '%s %s to %s packet too large, valid: [%s] too big (%d bytes): %s' % [
+      packet.timestamp.strftime(TIMESTAMP_FORMAT),
+      source, destination,
+      valid.join(', '), size, rest.dump
     ]
   end
 
@@ -347,10 +383,10 @@ Usage: #{opt.program_name} [options]
 
   def resolve_addresses packet
     source = packet.source @resolver
-    source.sub!(/\.(\d+)$/, ':\1')
+    source = "\"druby://#{source.sub(/\.(\d+)$/, ':\1')}\""
 
     destination = packet.destination @resolver
-    destination.sub!(/\.(\d+)$/, ':\1')
+    destination = "\"druby://#{destination.sub(/\.(\d+)$/, ':\1')}\""
 
     return source, destination
   end
@@ -361,7 +397,7 @@ Usage: #{opt.program_name} [options]
   def run
     capp = create_capp
 
-    drop_privileges
+    Capp.drop_privileges @run_as_user, @run_as_directory
 
     start_capture capp
 

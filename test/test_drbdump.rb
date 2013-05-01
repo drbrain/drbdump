@@ -4,11 +4,12 @@ require 'tempfile'
 
 class TestDRbDump < MiniTest::Unit::TestCase
 
-  ARG_DUMP  = File.expand_path '../arg.dump',     __FILE__
-  FIN_DUMP  = File.expand_path '../drb_fin.dump', __FILE__
-  HTTP_DUMP = File.expand_path '../http.dump',    __FILE__
-  PING_DUMP = File.expand_path '../ping.dump',    __FILE__
-  RING_DUMP = File.expand_path '../ring.dump',    __FILE__
+  ARG_DUMP       = File.expand_path '../arg.dump',     __FILE__
+  FIN_DUMP       = File.expand_path '../drb_fin.dump', __FILE__
+  HTTP_DUMP      = File.expand_path '../http.dump',    __FILE__
+  PING_DUMP      = File.expand_path '../ping.dump',    __FILE__
+  RING_DUMP      = File.expand_path '../ring.dump',    __FILE__
+  TOO_LARGE_DUMP = File.expand_path '../too_large_packet.pcap', __FILE__
 
   def test_class_process_args_defaults
     options = DRbDump.process_args []
@@ -150,6 +151,25 @@ class TestDRbDump < MiniTest::Unit::TestCase
     assert_equal expected, out
 
     assert_equal 1, @drbdump.drb_packet_count
+  end
+
+  def test_display_drb_too_large
+    out, = capture_io do
+      packets(TOO_LARGE_DUMP).each do |packet|
+        drbdump.display_drb packet
+      end
+    end
+
+    innards = "\x04\bI\"\x04\x00\x00\xE0\x01"
+    innards << ' ' * 468
+
+    expected = <<-EXPECTED
+22:41:07.060619 "druby://kault:56430" to "druby://kault:56428" packet too large, valid: [nil, "<<", 1] too big (31457294 bytes): #{innards.dump}
+    EXPECTED
+
+    assert_equal expected, out
+
+    assert_equal 0, @drbdump.drb_packet_count
   end
 
   def test_display_ring_finger

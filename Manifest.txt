@@ -12,3 +12,4 @@ test/http.dump
 test/ping.dump
 test/ring.dump
 test/test_drbdump.rb
+test/too_large_packet.pcap
