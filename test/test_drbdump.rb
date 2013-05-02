@@ -117,6 +117,9 @@ class TestDRbDump < MiniTest::Unit::TestCase
     assert_equal expected, out
 
     assert_empty @drbdump.incomplete_drb
+
+    assert_equal 4, @drbdump.drb_result_receipts
+    assert_equal 2, @drbdump.drb_message_sends
   end
 
   def test_display_drb_recv_msg
@@ -135,6 +138,7 @@ class TestDRbDump < MiniTest::Unit::TestCase
     assert_equal expected, out
 
     assert_equal 1, @drbdump.drb_packet_count
+    assert_equal 1, @drbdump.drb_result_receipts
   end
 
   def test_display_drb_send_msg
@@ -151,6 +155,7 @@ class TestDRbDump < MiniTest::Unit::TestCase
     assert_equal expected, out
 
     assert_equal 1, @drbdump.drb_packet_count
+    assert_equal 1, @drbdump.drb_message_sends
   end
 
   def test_display_drb_too_large
@@ -237,9 +242,12 @@ class TestDRbDump < MiniTest::Unit::TestCase
     end
 
     expected = <<-EXPECTED
-3 DRb packets received
-0 Rinda packets received
 0 total packets captured
+0 Rinda packets captured
+3 DRb packets captured
+1 messages sent
+2 results received
+1 exceptions raised
     EXPECTED
 
     assert_equal expected, out

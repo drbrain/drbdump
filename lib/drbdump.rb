@@ -26,6 +26,21 @@ class DRbDump
   TIMESTAMP_FORMAT = '%H:%M:%S.%6N' # :nodoc:
 
   ##
+  # Number of DRb exceptions raised
+
+  attr_reader :drb_exceptions_raised
+
+  ##
+  # Number of DRb results received
+
+  attr_reader :drb_result_receipts
+
+  ##
+  # Number of DRb messages sent
+
+  attr_reader :drb_message_sends
+
+  ##
   # Number of DRb packets seen
 
   attr_reader :drb_packet_count
@@ -173,10 +188,13 @@ Usage: #{opt.program_name} [options]
     @run_as_directory = options[:run_as_directory]
     @run_as_user      = options[:run_as_user]
 
-    @drb_packet_count   = 0
-    @drb_streams        = {}
-    @rinda_packet_count = 0
-    @total_packet_count = 0
+    @drb_exceptions_raised = 0
+    @drb_result_receipts   = 0
+    @drb_message_sends     = 0
+    @drb_packet_count      = 0
+    @drb_streams           = {}
+    @rinda_packet_count    = 0
+    @total_packet_count    = 0
   end
 
   ##
@@ -259,6 +277,9 @@ Usage: #{opt.program_name} [options]
   def display_drb_recv packet, success, stream
     result = @loader.load stream
 
+    @drb_result_receipts += 1
+    @drb_exceptions_raised += 1 unless success
+
     result = if DRb::DRbObject === result then
                "(\"druby://#{result.__drburi}\", #{result.__drbref})"
              else
@@ -285,6 +306,8 @@ Usage: #{opt.program_name} [options]
     argc  = @loader.load stream
     argv  = argc.times.map do @loader.load stream end
     block = @loader.load stream
+
+    @drb_message_sends += 1
 
     argv << '&block' if block
 
@@ -385,9 +408,12 @@ Usage: #{opt.program_name} [options]
   # Writes statistics on packets and messages processed to $stdout
 
   def show_statistics
-    puts "#{@drb_packet_count} DRb packets received"
-    puts "#{@rinda_packet_count} Rinda packets received"
     puts "#{@total_packet_count} total packets captured"
+    puts "#{@rinda_packet_count} Rinda packets captured"
+    puts "#{@drb_packet_count} DRb packets captured"
+    puts "#{@drb_message_sends} messages sent"
+    puts "#{@drb_result_receipts} results received"
+    puts "#{@drb_exceptions_raised} exceptions raised"
   end
 
   ##
