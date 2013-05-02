@@ -237,7 +237,6 @@ class TestDRbDump < MiniTest::Unit::TestCase
     end
 
     expected = <<-EXPECTED
-
 3 DRb packets received
 0 Rinda packets received
 0 total packets captured

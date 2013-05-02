@@ -363,14 +363,19 @@ Usage: #{opt.program_name} [options]
 
     start_capture capp
 
+    trap_info
+
     display_packets.join
   rescue Interrupt
+    untrap_info
+
     capp.stop
 
     @incoming_packets.enq nil
 
     @display_thread.join
 
+    puts # clear ^C
     show_statistics
 
     exit
@@ -380,7 +385,6 @@ Usage: #{opt.program_name} [options]
   # Writes statistics on packets and messages processed to $stdout
 
   def show_statistics
-    puts # clear ^C
     puts "#{@drb_packet_count} DRb packets received"
     puts "#{@rinda_packet_count} Rinda packets received"
     puts "#{@total_packet_count} total packets captured"
@@ -407,6 +411,26 @@ Usage: #{opt.program_name} [options]
         @incoming_packets.enq packet
       end
     end
+  end
+
+  ##
+  # Adds a SIGINFO handler if the OS supports it
+
+  def trap_info
+    return unless Signal.list['INFO']
+
+    trap 'INFO' do
+      show_statistics
+    end
+  end
+
+  ##
+  # Sets the SIGINFO handler to the DEFAULT handler
+
+  def untrap_info
+    return unless Signal.list['INFO']
+
+    trap 'INFO', 'DEFAULT'
   end
 
 end
