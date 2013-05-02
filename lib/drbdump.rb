@@ -29,9 +29,9 @@ require 'thread'
 # Rinda::TupleSpace being renewed (checked if it is still alive), but broken
 # into two lines:
 #
-#   17:46:27.818412 "druby://kault.local:65172" >
+#   17:46:27.818412 "druby://kault.local:65172" \u21d2
 #                     ("druby://kault.local:63874", 70093484759080).renew()
-#   17:46:27.818709 "druby://kault.local:65172" <
+#   17:46:27.818709 "druby://kault.local:65172" \u21d0
 #                     "druby://kault.local:63874" success: 180
 #
 # The first two lines are the message-send.  The first field is the timestamp
@@ -56,7 +56,7 @@ require 'thread'
 # For the second two lines are the return value from the message-send.  Here
 # they are again:
 #
-#   17:46:27.818709 "druby://kault.local:65172" <
+#   17:46:27.818709 "druby://kault.local:65172" \u21d0
 #                     "druby://kault.local:63874" success: 180
 #
 # The fields are the timestamp, the DRb peer that sent the message and is
@@ -382,12 +382,13 @@ Usage: #{opt.program_name} [options]
              end
 
     message = success ? 'success' : 'exception'
+    arrow   = success ? "\u21d0"  : "\u2902"
 
     source, destination = resolve_addresses packet
 
-    puts '%s %s < %s %s: %s' % [
+    puts "%s %s %s %s %s: %s" % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
-      destination, source,
+      destination, arrow, source,
       message, result
     ]
   end
@@ -408,7 +409,7 @@ Usage: #{opt.program_name} [options]
 
     source, destination = resolve_addresses packet
 
-    puts '%s %s > (%s, %s).%s(%s)' % [
+    puts "%s %s \u21d2 (%s, %s).%s(%s)" % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
       source, destination,
       ref, msg, argv.map { |obj| obj.inspect }.join(', ')

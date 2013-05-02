@@ -106,12 +106,12 @@ class TestDRbDump < MiniTest::Unit::TestCase
     end
 
     expected = <<-EXPECTED
-22:19:38.279650 "druby://kault:56128" > ("druby://kault:56126", nil).ping(1)
-22:19:38.280108 "druby://kault:56128" < "druby://kault:56126" success: 1
-22:19:38.280472 "druby://kault:56128" < "druby://kault:56126" exception: #<DRb::DRbConnError: connection closed>
-22:19:38.280713 "druby://kault:56129" > ("druby://kault:56126", nil).ping(2)
-22:19:38.280973 "druby://kault:56129" < "druby://kault:56126" success: 2
-22:19:38.281197 "druby://kault:56129" < "druby://kault:56126" exception: #<DRb::DRbConnError: connection closed>
+22:19:38.279650 "druby://kault:56128" \u21d2 ("druby://kault:56126", nil).ping(1)
+22:19:38.280108 "druby://kault:56128" \u21d0 "druby://kault:56126" success: 1
+22:19:38.280472 "druby://kault:56128" \u2902 "druby://kault:56126" exception: #<DRb::DRbConnError: connection closed>
+22:19:38.280713 "druby://kault:56129" \u21d2 ("druby://kault:56126", nil).ping(2)
+22:19:38.280973 "druby://kault:56129" \u21d0 "druby://kault:56126" success: 2
+22:19:38.281197 "druby://kault:56129" \u2902 "druby://kault:56126" exception: #<DRb::DRbConnError: connection closed>
     EXPECTED
 
     assert_equal expected, out
@@ -132,7 +132,7 @@ class TestDRbDump < MiniTest::Unit::TestCase
     end
 
     expected = <<-EXPECTED
-20:01:45.927677 "druby://kault:53717" < "druby://kault:53714" success: 1
+20:01:45.927677 "druby://kault:53717" \u21d0 "druby://kault:53714" success: 1
     EXPECTED
 
     assert_equal expected, out
@@ -149,7 +149,7 @@ class TestDRbDump < MiniTest::Unit::TestCase
     end
 
     expected = <<-EXPECTED
-23:46:20.561659 "druby://kault:57317" > ("druby://kault:57315", nil).ping(1, \"abcdefghij\")
+23:46:20.561659 "druby://kault:57317" \u21d2 ("druby://kault:57315", nil).ping(1, \"abcdefghij\")
     EXPECTED
 
     assert_equal expected, out
