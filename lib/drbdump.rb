@@ -9,6 +9,94 @@ require 'thread'
 
 ##
 # tcpdump for DRb
+#
+# == Usage
+#
+# The +drbdump+ command-line utility works similarly to tcpdump.  Here's the
+# easiest way to get started:
+#
+#   drbdump -i lo0
+#
+# This captures DRb messages on your loopback interface.  You can disable name
+# resolution with <code>-n</code>.  You can also drop root privileges with the
+# -Z option if you don't want drbdump to run as root after it creates the
+# capture device.
+#
+# == Output
+#
+# +drbdump+ reassembles TCP streams to create a complete message-send or
+# message result and displays it to you when complete.  Here is an object in a
+# Rinda::TupleSpace being renewed (checked if it is still alive), but broken
+# into two lines:
+#
+#   17:46:27.818412 "druby://kault.local:65172" >
+#                     ("druby://kault.local:63874", 70093484759080).renew()
+#   17:46:27.818709 "druby://kault.local:65172" <
+#                     "druby://kault.local:63874" success: 180
+#
+# The first two lines are the message-send.  The first field is the timestamp
+# of the packet.  The second is the DRb peer the messages was sent from.
+# The greater-than sign indicates this is a message-send.  The remainder is
+# the DRb peer and object reference (7009...) the message is being sent to
+# along with the message (+renew+).  If any arguments were present they would
+# appear in the argument list.
+#
+# The URIs are quoted to make it easy to copy part of the message into irb if
+# you want to perform further debugging.  For example, you can attach to the
+# peer sending the message with:
+#
+#   >> sender = DRb::DRbObject.new_with_uri "druby://kault.local:65172"
+#
+# You can re-send the message by copying the message from the first
+# open parenthesis to the end of the line:
+#
+#   >> DRb::DRbObject.new_with("druby://kault.local:63874", 70093484759080).
+#        renew()
+#
+# For the second two lines are the return value from the message-send.  Here
+# they are again:
+#
+#   17:46:27.818709 "druby://kault.local:65172" <
+#                     "druby://kault.local:63874" success: 180
+#
+# The fields are the timestamp, the DRb peer that sent the message and is
+# receiving the result, the DRb peer that received the message, "success" for
+# a non-exception result and the response value.
+#
+# Unlike +tcpdump+ drbdump always shows the peer that send the message on the
+# left and uses the arrow to indicate the direction of the message.
+#
+# Note that the message-send and its result may be separated by other messages
+# and results, so you will need to check the port values to connect a message
+# send to its result.
+#
+# == Statistics
+#
+# On supported operating systems you can send a SIGINFO (control-t) to display
+# current statistics:
+#
+#   load: 0.91  cmd: ruby 31579 running 2.48u 8.64s
+#   29664 total packets captured
+#   71 Rinda packets received
+#   892 DRb packets received
+#   446 messages sent
+#   446 results received
+#   0 exceptions raised
+#
+# These statistics are also printed when you quit drbdump.
+#
+# == Replaying packet logs
+#
+# You can capture and record packets with tcpdump then replay the captured
+# file with drbdump.  To record captured packets use <code>tcpdump -w
+# dump_file</code>:
+#
+#   $ tcpdump -i lo0 -w drb.pcap [filter]
+#
+# To replay the capture with drbdump give the path to the dump file to
+# <code>drbdump -i</code>:
+#
+#   $ drbdump -i drb.pcap
 
 class DRbDump
 
@@ -298,7 +386,7 @@ Usage: #{opt.program_name} [options]
   end
 
   ##
-  # Writes a DRb packet for a message send to standard output.
+  # Writes a DRb packet for a message-send to standard output.
 
   def display_drb_send packet, ref, stream # :nodoc:
     ref   = 'nil' unless ref
