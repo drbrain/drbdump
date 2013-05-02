@@ -310,7 +310,12 @@ Usage: #{opt.program_name} [options]
 
     time = packet.timestamp.strftime TIMESTAMP_FORMAT
     (_, tell), timeout = obj
-    puts "#{time} find ring for #{tell.__drburi} timeout #{timeout}"
+
+    puts '%s find ring on %s for %s timeout: %d' % [
+      packet.timestamp.strftime(TIMESTAMP_FORMAT),
+      packet.destination(@resolver), tell.__drburi,
+      timeout
+    ]
 
     @rinda_packet_count += 1
   rescue

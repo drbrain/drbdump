@@ -183,7 +183,7 @@ class TestDRbDump < MiniTest::Unit::TestCase
     end
 
     expected = <<-EXPECTED
-19:39:25.877246 find ring for druby://kault.jijo.segment7.net:53578 timeout 5
+19:39:25.877246 find ring on 255.255.255.255.7647 for druby://kault.jijo.segment7.net:53578 timeout: 5
     EXPECTED
 
     assert_equal expected, out
