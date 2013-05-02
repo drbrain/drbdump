@@ -200,6 +200,8 @@ Usage: #{opt.program_name} [options]
   drbdump dumps DRb traffic from your local network.
 
   drbdump understands TCP traffic and Rinda broadcast queries.
+
+  For information on drbdump output and usage see `ri DRbDump`.
       BANNER
 
       opt.separator nil
