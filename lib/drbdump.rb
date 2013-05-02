@@ -371,12 +371,19 @@ Usage: #{opt.program_name} [options]
 
     @display_thread.join
 
+    show_statistics
+
+    exit
+  end
+
+  ##
+  # Writes statistics on packets and messages processed to $stdout
+
+  def show_statistics
     puts # clear ^C
     puts "#{@drb_packet_count} DRb packets received"
     puts "#{@rinda_packet_count} Rinda packets received"
     puts "#{@total_packet_count} total packets captured"
-
-    exit
   end
 
   ##

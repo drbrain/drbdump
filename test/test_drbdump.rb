@@ -223,8 +223,31 @@ class TestDRbDump < MiniTest::Unit::TestCase
     assert_empty @drbdump.incomplete_drb
   end
 
+  def test_show_statistics
+    drbdump
+
+    capture_io do
+      packets(ARG_DUMP).each do |packet|
+        @drbdump.display_drb packet
+      end
+    end
+
+    out, = capture_io do
+      @drbdump.show_statistics
+    end
+
+    expected = <<-EXPECTED
+
+3 DRb packets received
+0 Rinda packets received
+0 total packets captured
+    EXPECTED
+
+    assert_equal expected, out
+  end
+
   def drbdump file = PING_DUMP
-    @drbdump = DRbDump.new :device => file
+    @drbdump = DRbDump.new device: file
     @drbdump.resolver = resolver
     @drbdump
   end
