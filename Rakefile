@@ -12,6 +12,7 @@ Hoe.spec 'drbdump' do
   rdoc_locations << 'docs.seattlerb.org:/data/www/docs.seattlerb.org/drbdump/'
 
   self.readme_file = 'README.rdoc'
+  self.licenses << 'MIT'
 
   self.extra_deps << ['capp', '~> 1.0']
 end
