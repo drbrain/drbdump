@@ -299,8 +299,10 @@ Usage: #{opt.program_name} [options]
       @devices = [
         Capp.default_device_name,
         loopback,
-      ]
+      ].compact
     end
+
+    @devices.uniq!
 
     @drb_exceptions_raised = 0
     @drb_result_receipts   = 0
