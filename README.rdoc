@@ -21,7 +21,7 @@ flow between your DRb processes.
 
 == Synopsis
 
-To show DRb activity on your local network:
+To show DRb messages:
 
   drbdump
 

@@ -14,20 +14,24 @@ class TestDRbDump < MiniTest::Unit::TestCase
   def test_class_process_args_defaults
     options = DRbDump.process_args []
 
-    assert_equal nil,  options[:device]
+    assert_equal [],   options[:devices]
     assert_equal true, options[:resolve_names]
     assert_equal nil,  options[:run_as_directory]
     assert_equal nil,  options[:run_as_user]
   end
 
-  def test_class_process_args_device
+  def test_class_process_args_devices
     options = DRbDump.process_args %w[--interface lo0]
 
-    assert_equal 'lo0', options[:device]
+    assert_equal %w[lo0], options[:devices]
 
     options = DRbDump.process_args %w[-i lo0]
 
-    assert_equal 'lo0', options[:device]
+    assert_equal %w[lo0], options[:devices]
+
+    options = DRbDump.process_args %w[-i lo0 -i en0]
+
+    assert_equal %w[lo0 en0], options[:devices]
   end
 
   def test_class_process_args_invalid
@@ -66,7 +70,7 @@ class TestDRbDump < MiniTest::Unit::TestCase
   def test_create_capp
     drbdump RING_DUMP
 
-    packets = @drbdump.create_capp.loop.to_a
+    packets = @drbdump.create_capp(RING_DUMP).loop.to_a
 
     refute_empty packets
 
@@ -194,9 +198,9 @@ class TestDRbDump < MiniTest::Unit::TestCase
   def test_start_capture
     drbdump RING_DUMP
 
-    capp = @drbdump.create_capp
+    capp = @drbdump.create_capp RING_DUMP
 
-    thread = @drbdump.start_capture capp
+    thread, = @drbdump.start_capture [capp]
 
     thread.join
 
@@ -218,9 +222,9 @@ class TestDRbDump < MiniTest::Unit::TestCase
     @drbdump.drb_streams[packet.source] = true
     @drbdump.incomplete_drb[packet.source] = ''
 
-    capp = @drbdump.create_capp
+    capp = @drbdump.create_capp FIN_DUMP
 
-    thread = @drbdump.start_capture capp
+    thread, = @drbdump.start_capture [capp]
 
     thread.join
 
@@ -254,7 +258,7 @@ class TestDRbDump < MiniTest::Unit::TestCase
   end
 
   def drbdump file = PING_DUMP
-    @drbdump = DRbDump.new device: file
+    @drbdump = DRbDump.new devices: [file]
     @drbdump.resolver = resolver
     @drbdump
   end

@@ -15,12 +15,12 @@ require 'thread'
 # The +drbdump+ command-line utility works similarly to tcpdump.  Here's the
 # easiest way to get started:
 #
-#   drbdump -i lo0
+#   drbdump
 #
-# This captures DRb messages on your loopback interface.  You can disable name
-# resolution with <code>-n</code>.  You can also drop root privileges with the
-# -Z option if you don't want drbdump to run as root after it creates the
-# capture device.
+# This captures DRb messages on your loopback and public interface.  You can
+# disable name resolution with <code>-n</code>.  You can also drop root
+# privileges with the -Z option if you don't want drbdump to run as root after
+# it creates the capture device.
 #
 # == Output
 #
@@ -184,7 +184,7 @@ class DRbDump
 
   def self.process_args argv
     options = {
-      device:           nil,
+      devices:          [],
       resolve_names:    true,
       run_as_directory: nil,
       run_as_user:      nil,
@@ -208,11 +208,12 @@ Usage: #{opt.program_name} [options]
 
       opt.on('-i', '--interface INTERFACE',
              'The interface to listen on or a tcpdump',
-             'packet capture file',
+             'packet capture file.  Multiple interfaces',
+             'can be specified.',
              "\n",
              'The tcpdump default interface is also the',
              'drbdump default') do |interface|
-        options[:device] = interface
+        options[:devices] << interface
       end
 
       opt.separator nil
@@ -263,13 +264,23 @@ Usage: #{opt.program_name} [options]
   end
 
   ##
-  # Creates a new DRbDump that listens on +device+.  If no device is given the
-  # default device is used.
+  # Creates a new DRbDump for +options+.  The following options are allowed:
   #
-  # See also Capp::default_device_name.
+  # :devices::
+  #   An Array of devices to listen on.  If the Array is empty then the
+  #   default device (see Capp::default_device_name) and the loopback device
+  #   are used.
+  # :resolve_names::
+  #   When true drbdump will look up address names.
+  # :run_as_user::
+  #   When set, drop privileges from root to this user after starting packet
+  #   capture.
+  # :run_as_directory::
+  #   When set, chroot() to this directory after starting packet capture.
+  #   Only useful with :run_as_user
 
   def initialize options
-    @device           = options[:device] || Capp.default_device_name
+    @devices          = options[:devices]
     @drb_config       = DRb::DRbServer.make_config
     @incoming_packets = Queue.new
     @incomplete_drb   = {}
@@ -277,6 +288,19 @@ Usage: #{opt.program_name} [options]
     @resolver         = Resolv if options[:resolve_names]
     @run_as_directory = options[:run_as_directory]
     @run_as_user      = options[:run_as_user]
+
+    if @devices.empty? then
+      loopback = Capp.devices.find do |device|
+        device.addresses.any? do |address|
+          %w[127.0.0.1 ::1].include? address.address
+        end
+      end.name
+
+      @devices = [
+        Capp.default_device_name,
+        loopback,
+      ]
+    end
 
     @drb_exceptions_raised = 0
     @drb_result_receipts   = 0
@@ -288,10 +312,11 @@ Usage: #{opt.program_name} [options]
   end
 
   ##
-  # Creates a new Capp instance that packets DRb and Rinda packets
+  # Creates a new Capp instance that listens on +device+ for DRb and Rinda
+  # packets
 
-  def create_capp # :nodoc:
-    capp = Capp.open @device
+  def create_capp device # :nodoc:
+    capp = Capp.open device
 
     capp.filter = <<-FILTER
       (tcp and (((ip[2:2] - ((ip[0]&0xf)<<2)) - ((tcp[12]&0xf0)>>2)) != 0)) or
@@ -476,11 +501,11 @@ Usage: #{opt.program_name} [options]
   # Captures packets and displays them on the screen.
 
   def run
-    capp = create_capp
+    capps = @devices.map { |device| create_capp device }
 
     Capp.drop_privileges @run_as_user, @run_as_directory
 
-    start_capture capp
+    start_capture capps
 
     trap_info
 
@@ -515,22 +540,24 @@ Usage: #{opt.program_name} [options]
   ##
   # Captures DRb packets and feeds them to the incoming_packets queue
 
-  def start_capture capp
-    @capture_thread = Thread.new do
-      fin_or_rst = Capp::TCP_FIN | Capp::TCP_RST
+  def start_capture capps
+    capps.map do |capp|
+      Thread.new do
+        fin_or_rst = Capp::TCP_FIN | Capp::TCP_RST
 
-      capp.loop do |packet|
-        @total_packet_count += 1
+        capp.loop do |packet|
+          @total_packet_count += 1
 
-        if packet.tcp? and 0 != packet.tcp_header.flags & fin_or_rst then
-          @drb_streams.delete packet.source
-          @incomplete_drb.delete packet.source
-          next
+          if packet.tcp? and 0 != packet.tcp_header.flags & fin_or_rst then
+            @drb_streams.delete packet.source
+            @incomplete_drb.delete packet.source
+            next
+          end
+
+          next if @drb_streams[packet.source] == false
+
+          @incoming_packets.enq packet
         end
-
-        next if @drb_streams[packet.source] == false
-
-        @incoming_packets.enq packet
       end
     end
   end
