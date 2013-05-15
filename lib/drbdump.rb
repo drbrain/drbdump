@@ -515,7 +515,9 @@ Usage: #{opt.program_name} [options]
   rescue Interrupt
     untrap_info
 
-    capp.stop
+    capps.each do |capp|
+      capp.stop
+    end
 
     @incoming_packets.enq nil
 
