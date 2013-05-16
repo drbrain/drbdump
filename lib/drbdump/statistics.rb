@@ -33,7 +33,7 @@ class DRbDump::Statistics
 
   attr_accessor :total_packet_count
 
-  def initialize
+  def initialize # :nodoc:
     @drb_exceptions_raised = 0
     @drb_result_receipts   = 0
     @drb_message_sends     = 0
