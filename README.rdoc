@@ -19,13 +19,15 @@ flow between your DRb processes.
 
 * Does not handle out-of-order or resent TCP packets
 
-== Synopsis
+== Usage
 
 To show DRb messages:
 
-  drbdump
+  sudo drbdump
 
-== Install
+See DRbDump for a full description of drbdump
+
+== Installation
 
   sudo gem install drbdump
 

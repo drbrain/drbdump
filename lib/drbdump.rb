@@ -15,7 +15,7 @@ require 'thread'
 # The +drbdump+ command-line utility works similarly to tcpdump.  Here's the
 # easiest way to get started:
 #
-#   drbdump
+#   sudo drbdump
 #
 # This captures DRb messages on your loopback and public interface.  You can
 # disable name resolution with <code>-n</code>.  You can also drop root
