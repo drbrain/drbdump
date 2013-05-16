@@ -43,9 +43,16 @@ class DRbDump::Statistics
   end
 
   ##
-  # Writes statistics on packets and messages processed to $stdout
+  # Writes all statistics on packets and messages processesed to $stdout
 
   def show
+    show_basic
+  end
+
+  ##
+  # Writes basic statistics on packets and messages processed to $stdout
+
+  def show_basic
     puts "#{@total_packet_count} total packets captured"
     puts "#{@rinda_packet_count} Rinda packets captured"
     puts "#{@drb_packet_count} DRb packets captured"

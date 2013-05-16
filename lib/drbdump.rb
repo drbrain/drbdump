@@ -531,7 +531,7 @@ Usage: #{opt.program_name} [options]
     return unless Signal.list['INFO']
 
     trap 'INFO' do
-      @statistics.show
+      @statistics.show_basic
     end
   end
 

@@ -2,7 +2,7 @@ require 'drbdump/test_case'
 
 class TestDRbDumpStatistics < DRbDump::TestCase
 
-  def test_show
+  def test_show_basic
     drbdump
 
     capture_io do
@@ -12,7 +12,7 @@ class TestDRbDumpStatistics < DRbDump::TestCase
     end
 
     out, = capture_io do
-      @statistics.show
+      @statistics.show_basic
     end
 
     expected = <<-EXPECTED
