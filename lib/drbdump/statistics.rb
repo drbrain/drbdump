@@ -43,6 +43,21 @@ class DRbDump::Statistics
   end
 
   ##
+  # Adds a message-send to the counter
+
+  def add_message_send receiver, message, argv, block
+    @drb_message_sends += 1
+  end
+
+  ##
+  # Adds a result-receipt to the counter
+
+  def add_result_receipt success, result
+    @drb_result_receipts += 1
+    @drb_exceptions_raised += 1 unless success
+  end
+
+  ##
   # Writes all statistics on packets and messages processesed to $stdout
 
   def show

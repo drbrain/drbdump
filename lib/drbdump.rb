@@ -259,7 +259,7 @@ Usage: #{opt.program_name} [options]
     @drb_config       = DRb::DRbServer.make_config
     @incoming_packets = Queue.new
     @incomplete_drb   = {}
-    @loader           = DRb::DRbMessage.new @drb_config
+    @loader           = DRbDump::Loader.new @drb_config
     @resolver         = Resolv if options[:resolve_names]
     @run_as_directory = options[:run_as_directory]
     @run_as_user      = options[:run_as_user]
@@ -338,10 +338,11 @@ Usage: #{opt.program_name} [options]
     end
 
     stream = StringIO.new payload
+    stream.set_encoding Encoding::BINARY, Encoding::BINARY
 
     first_chunk = @loader.load stream
 
-    case first_chunk
+    case first_chunk.load
     when nil, Integer then
       display_drb_send packet, first_chunk, stream
     when true, false then
@@ -352,25 +353,24 @@ Usage: #{opt.program_name} [options]
 
     @statistics.drb_packet_count += 1
     @drb_streams[source] = true
-  rescue DRb::DRbConnError => e
-    case e.message
-    when "premature marshal format(can't read)" then
-      @incomplete_drb[source] = payload
-    when /^too large packet / then
-      display_drb_too_large packet
-    else
-      @drb_streams[source] = false
-    end
+  rescue DRbDump::Loader::TooLarge
+    display_drb_too_large packet
+  rescue DRbDump::Loader::Premature, DRbDump::Loader::DataError
+    @incomplete_drb[source] = payload
+  rescue DRbDump::Loader::Error => e
+    @drb_streams[source] = false
   end
 
   ##
   # Writes a DRb packet for a message recv to standard output.
 
   def display_drb_recv packet, success, stream
-    result = @loader.load stream
+    success = success.load
+    result  = @loader.load stream
 
-    @statistics.drb_result_receipts += 1
-    @statistics.drb_exceptions_raised += 1 unless success
+    @statistics.add_result_receipt success, result
+
+    result = result.load
 
     result = if DRb::DRbObject === result then
                "(\"druby://#{result.__drburi}\", #{result.__drbref})"
@@ -396,20 +396,22 @@ Usage: #{opt.program_name} [options]
   def display_drb_send packet, ref, stream # :nodoc:
     ref   = 'nil' unless ref
     msg   = @loader.load stream
-    argc  = @loader.load stream
+    argc  = @loader.load(stream).load
     argv  = argc.times.map do @loader.load stream end
     block = @loader.load stream
 
-    @statistics.drb_message_sends += 1
+    @statistics.add_message_send ref, msg, argv, block
 
-    argv << '&block' if block
+    argv.map! { |obj| obj.load.inspect }
+    (argv << '&block') if block.load
+    argv = argv.join ', '
 
     source, destination = resolve_addresses packet
 
-    puts "%s %s \u21d2 (%s, %s).%s(%s)" % [
+    puts "%s %s \u21d2 (%s, %p).%s(%s)" % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
       source, destination,
-      ref, msg, argv.map { |obj| obj.inspect }.join(', ')
+      ref.load, msg.load, argv
     ]
   end
 
@@ -546,4 +548,5 @@ Usage: #{opt.program_name} [options]
 
 end
 
+require 'drbdump/loader'
 require 'drbdump/statistics'
