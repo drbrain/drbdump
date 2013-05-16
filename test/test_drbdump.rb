@@ -1,15 +1,6 @@
-require 'minitest/autorun'
-require 'drbdump'
-require 'tempfile'
+require 'drbdump/test_case'
 
-class TestDRbDump < MiniTest::Unit::TestCase
-
-  ARG_DUMP       = File.expand_path '../arg.dump',     __FILE__
-  FIN_DUMP       = File.expand_path '../drb_fin.dump', __FILE__
-  HTTP_DUMP      = File.expand_path '../http.dump',    __FILE__
-  PING_DUMP      = File.expand_path '../ping.dump',    __FILE__
-  RING_DUMP      = File.expand_path '../ring.dump',    __FILE__
-  TOO_LARGE_DUMP = File.expand_path '../too_large_packet.pcap', __FILE__
+class TestDRbDump < DRbDump::TestCase
 
   def test_class_process_args_defaults
     options = DRbDump.process_args []
@@ -230,30 +221,6 @@ class TestDRbDump < MiniTest::Unit::TestCase
 
     assert_empty @drbdump.drb_streams
     assert_empty @drbdump.incomplete_drb
-  end
-
-  def drbdump file = PING_DUMP
-    @drbdump = DRbDump.new devices: [file]
-    @drbdump.resolver = resolver
-
-    @statistics = @drbdump.statistics
-
-    @drbdump
-  end
-
-  def packets file
-    Capp.open(file).loop
-  end
-
-  def resolver
-    Tempfile.open 'hosts' do |io|
-      io.puts '10.101.28.77 kault'
-      io.flush
-
-      resolver = Resolv::Hosts.new io.path
-      resolver.getname '10.101.28.77' # initialize
-      resolver
-    end
   end
 
 end

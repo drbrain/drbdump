@@ -1,14 +1,6 @@
-require 'minitest/autorun'
-require 'drbdump'
+require 'drbdump/test_case'
 
-class TestDRbDumpStatistics < MiniTest::Unit::TestCase
-
-  ARG_DUMP       = File.expand_path '../arg.dump',     __FILE__
-  FIN_DUMP       = File.expand_path '../drb_fin.dump', __FILE__
-  HTTP_DUMP      = File.expand_path '../http.dump',    __FILE__
-  PING_DUMP      = File.expand_path '../ping.dump',    __FILE__
-  RING_DUMP      = File.expand_path '../ring.dump',    __FILE__
-  TOO_LARGE_DUMP = File.expand_path '../too_large_packet.pcap', __FILE__
+class TestDRbDumpStatistics < DRbDump::TestCase
 
   def test_show
     drbdump
@@ -33,18 +25,6 @@ class TestDRbDumpStatistics < MiniTest::Unit::TestCase
     EXPECTED
 
     assert_equal expected, out
-  end
-
-  def drbdump file = PING_DUMP
-    @drbdump = DRbDump.new devices: [file]
-
-    @statistics = @drbdump.statistics
-
-    @drbdump
-  end
-
-  def packets file
-    Capp.open(file).loop
   end
 
 end
