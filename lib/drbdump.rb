@@ -114,26 +114,6 @@ class DRbDump
   TIMESTAMP_FORMAT = '%H:%M:%S.%6N' # :nodoc:
 
   ##
-  # Number of DRb exceptions raised
-
-  attr_reader :drb_exceptions_raised
-
-  ##
-  # Number of DRb results received
-
-  attr_reader :drb_result_receipts
-
-  ##
-  # Number of DRb messages sent
-
-  attr_reader :drb_message_sends
-
-  ##
-  # Number of DRb packets seen
-
-  attr_reader :drb_packet_count
-
-  ##
   # Tracks if TCP packets contain DRb content or not
 
   attr_reader :drb_streams # :nodoc:
@@ -154,11 +134,6 @@ class DRbDump
   attr_accessor :resolver
 
   ##
-  # Number of Rinda packets seen
-
-  attr_reader :rinda_packet_count
-
-  ##
   # Directory to chroot to after starting packet capture devices (which
   # require root privileges)
   #
@@ -175,9 +150,9 @@ class DRbDump
   attr_accessor :run_as_user
 
   ##
-  # Number of packets seen, including non-DRb traffic
+  # Collects statistics on packets and messages.  See DRbDump::Statistics.
 
-  attr_reader :total_packet_count
+  attr_reader :statistics
 
   ##
   # Converts command-line arguments +argv+ into an options Hash
@@ -304,13 +279,8 @@ Usage: #{opt.program_name} [options]
 
     @devices.uniq!
 
-    @drb_exceptions_raised = 0
-    @drb_result_receipts   = 0
-    @drb_message_sends     = 0
-    @drb_packet_count      = 0
-    @drb_streams           = {}
-    @rinda_packet_count    = 0
-    @total_packet_count    = 0
+    @statistics  = DRbDump::Statistics.new
+    @drb_streams = {}
   end
 
   ##
@@ -346,7 +316,7 @@ Usage: #{opt.program_name} [options]
       timeout
     ]
 
-    @rinda_packet_count += 1
+    @statistics.rinda_packet_count += 1
   rescue
   end
 
@@ -380,7 +350,7 @@ Usage: #{opt.program_name} [options]
       return # ignore
     end
 
-    @drb_packet_count += 1
+    @statistics.drb_packet_count += 1
     @drb_streams[source] = true
   rescue DRb::DRbConnError => e
     case e.message
@@ -399,8 +369,8 @@ Usage: #{opt.program_name} [options]
   def display_drb_recv packet, success, stream
     result = @loader.load stream
 
-    @drb_result_receipts += 1
-    @drb_exceptions_raised += 1 unless success
+    @statistics.drb_result_receipts += 1
+    @statistics.drb_exceptions_raised += 1 unless success
 
     result = if DRb::DRbObject === result then
                "(\"druby://#{result.__drburi}\", #{result.__drbref})"
@@ -430,7 +400,7 @@ Usage: #{opt.program_name} [options]
     argv  = argc.times.map do @loader.load stream end
     block = @loader.load stream
 
-    @drb_message_sends += 1
+    @statistics.drb_message_sends += 1
 
     argv << '&block' if block
 
@@ -524,21 +494,9 @@ Usage: #{opt.program_name} [options]
     @display_thread.join
 
     puts # clear ^C
-    show_statistics
+    @statistics.show
 
     exit
-  end
-
-  ##
-  # Writes statistics on packets and messages processed to $stdout
-
-  def show_statistics
-    puts "#{@total_packet_count} total packets captured"
-    puts "#{@rinda_packet_count} Rinda packets captured"
-    puts "#{@drb_packet_count} DRb packets captured"
-    puts "#{@drb_message_sends} messages sent"
-    puts "#{@drb_result_receipts} results received"
-    puts "#{@drb_exceptions_raised} exceptions raised"
   end
 
   ##
@@ -550,7 +508,7 @@ Usage: #{opt.program_name} [options]
         fin_or_rst = Capp::TCP_FIN | Capp::TCP_RST
 
         capp.loop do |packet|
-          @total_packet_count += 1
+          @statistics.total_packet_count += 1
 
           if packet.tcp? and 0 != packet.tcp_header.flags & fin_or_rst then
             @drb_streams.delete packet.source
@@ -573,7 +531,7 @@ Usage: #{opt.program_name} [options]
     return unless Signal.list['INFO']
 
     trap 'INFO' do
-      show_statistics
+      @statistics.show
     end
   end
 
@@ -588,3 +546,4 @@ Usage: #{opt.program_name} [options]
 
 end
 
+require 'drbdump/statistics'

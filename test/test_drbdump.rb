@@ -90,7 +90,7 @@ class TestDRbDump < MiniTest::Unit::TestCase
       end
     end
 
-    assert_equal 0, @drbdump.drb_packet_count
+    assert_equal 0, @statistics.drb_packet_count
 
     expected = {
       '17.149.160.49.80'   => false,
@@ -122,8 +122,8 @@ class TestDRbDump < MiniTest::Unit::TestCase
 
     assert_empty @drbdump.incomplete_drb
 
-    assert_equal 4, @drbdump.drb_result_receipts
-    assert_equal 2, @drbdump.drb_message_sends
+    assert_equal 4, @statistics.drb_result_receipts
+    assert_equal 2, @statistics.drb_message_sends
   end
 
   def test_display_drb_recv_msg
@@ -141,8 +141,8 @@ class TestDRbDump < MiniTest::Unit::TestCase
 
     assert_equal expected, out
 
-    assert_equal 1, @drbdump.drb_packet_count
-    assert_equal 1, @drbdump.drb_result_receipts
+    assert_equal 1, @statistics.drb_packet_count
+    assert_equal 1, @statistics.drb_result_receipts
   end
 
   def test_display_drb_send_msg
@@ -158,8 +158,8 @@ class TestDRbDump < MiniTest::Unit::TestCase
 
     assert_equal expected, out
 
-    assert_equal 1, @drbdump.drb_packet_count
-    assert_equal 1, @drbdump.drb_message_sends
+    assert_equal 1, @statistics.drb_packet_count
+    assert_equal 1, @statistics.drb_message_sends
   end
 
   def test_display_drb_too_large
@@ -178,7 +178,7 @@ class TestDRbDump < MiniTest::Unit::TestCase
 
     assert_equal expected, out
 
-    assert_equal 0, @drbdump.drb_packet_count
+    assert_equal 0, @statistics.drb_packet_count
   end
 
   def test_display_ring_finger
@@ -192,7 +192,7 @@ class TestDRbDump < MiniTest::Unit::TestCase
 
     assert_equal expected, out
 
-    assert_equal 1, @drbdump.rinda_packet_count
+    assert_equal 1, @statistics.rinda_packet_count
   end
 
   def test_start_capture
@@ -212,7 +212,7 @@ class TestDRbDump < MiniTest::Unit::TestCase
 
     assert_equal Rinda::Ring_PORT, packet.udp_header.destination_port
 
-    assert_equal packets(RING_DUMP).count, @drbdump.total_packet_count
+    assert_equal packets(RING_DUMP).count, @statistics.total_packet_count
   end
 
   def test_start_capture_rst_fin
@@ -232,34 +232,12 @@ class TestDRbDump < MiniTest::Unit::TestCase
     assert_empty @drbdump.incomplete_drb
   end
 
-  def test_show_statistics
-    drbdump
-
-    capture_io do
-      packets(ARG_DUMP).each do |packet|
-        @drbdump.display_drb packet
-      end
-    end
-
-    out, = capture_io do
-      @drbdump.show_statistics
-    end
-
-    expected = <<-EXPECTED
-0 total packets captured
-0 Rinda packets captured
-3 DRb packets captured
-1 messages sent
-2 results received
-1 exceptions raised
-    EXPECTED
-
-    assert_equal expected, out
-  end
-
   def drbdump file = PING_DUMP
     @drbdump = DRbDump.new devices: [file]
     @drbdump.resolver = resolver
+
+    @statistics = @drbdump.statistics
+
     @drbdump
   end
 
