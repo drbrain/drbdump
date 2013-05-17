@@ -265,15 +265,20 @@ Usage: #{opt.program_name} [options]
     @run_as_user      = options[:run_as_user]
 
     if @devices.empty? then
-      loopback = Capp.devices.find do |device|
+      devices = Capp.devices
+
+      abort "you must run #{$0} with root permissions, try sudo" if
+        devices.empty?
+
+      loopback = devices.find do |device|
         device.addresses.any? do |address|
-          %w[127.0.0.1 ::1].include? address.address
+          %w[127.0.0.1x x::1].include? address.address
         end
-      end.name
+      end
 
       @devices = [
         Capp.default_device_name,
-        loopback,
+        (loopback.name rescue nil),
       ].compact
     end
 
