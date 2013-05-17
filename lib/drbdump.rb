@@ -394,13 +394,14 @@ Usage: #{opt.program_name} [options]
   # Writes a DRb packet for a message-send to standard output.
 
   def display_drb_send packet, ref, stream # :nodoc:
-    ref   = 'nil' unless ref
     msg   = @loader.load stream
     argc  = @loader.load(stream).load
     argv  = argc.times.map do @loader.load stream end
     block = @loader.load stream
 
     @statistics.add_message_send ref, msg, argv, block
+
+    ref = ref.load
 
     argv.map! { |obj| obj.load.inspect }
     (argv << '&block') if block.load
@@ -411,7 +412,7 @@ Usage: #{opt.program_name} [options]
     puts "%s %s \u21d2 (%s, %p).%s(%s)" % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
       source, destination,
-      ref.load, msg.load, argv
+      ref, msg.load, argv
     ]
   end
 
