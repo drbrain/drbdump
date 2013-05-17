@@ -171,7 +171,7 @@ class DRbDump::Statistics
       '%-2$*1$s (%4$*3$s args) %6$*5$d sent, ' % [
           max_name_size, message, argc_width, argc, sends_width, count,
       ] + 
-      'average of %6g allocations, %7.3f std. dev.' % [mean, std_dev]
+      'average of %5.1f allocations, %7.3f std. dev.' % [mean, std_dev]
     end  
 
     puts 'Messages sent:'
