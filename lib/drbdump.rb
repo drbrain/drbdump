@@ -334,7 +334,6 @@ Usage: #{opt.program_name} [options]
   def display_ring_finger packet
     obj = Marshal.load packet.payload
 
-    time = packet.timestamp.strftime TIMESTAMP_FORMAT
     (_, tell), timeout = obj
 
     puts '%s find ring on %s for %s timeout: %d' % [
@@ -384,7 +383,7 @@ Usage: #{opt.program_name} [options]
     display_drb_too_large packet
   rescue DRbDump::Loader::Premature, DRbDump::Loader::DataError
     @incomplete_drb[source] = payload
-  rescue DRbDump::Loader::Error => e
+  rescue DRbDump::Loader::Error
     @drb_streams[source] = false
   end
 
