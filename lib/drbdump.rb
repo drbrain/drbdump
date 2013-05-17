@@ -73,7 +73,7 @@ require 'thread'
 # == Statistics
 #
 # On supported operating systems you can send a SIGINFO (control-t) to display
-# current statistics:
+# current statistics for the basic counters:
 #
 #   load: 0.91  cmd: ruby 31579 running 2.48u 8.64s
 #   29664 total packets captured
@@ -84,6 +84,28 @@ require 'thread'
 #   0 exceptions raised
 #
 # These statistics are also printed when you quit drbdump.
+#
+# drbdump also displays per-message statistics at which include the number of
+# messages sent per argument count (to help distinguish between messages with
+# the same name but on different receivers) along with the average number of
+# allocations and the standard deviation of allocations required to load the
+# object:
+#
+#   Messages sent:
+#   ping (2 args) 1003 sent, average of   8.405 allocations,   2.972 std. dev.
+#
+#   Results received:
+#   success:   1003 received, average of   7.405 allocations,   2.972 std. dev.
+#   exception:    1 received, average of      15 allocations,     NaN std. dev.
+#
+# This helps you determine which message-sends are causing more network
+# traffic.  Messages with higher numbers of allocations take longer to send
+# and load and create more pressure on the garbage collector.  You can change
+# locations that call these messages to use DRb::DRbObject references to help
+# reduce the size of the messages sent.
+#
+# Switching entirely to sending references may increase latency as the remote
+# end needs to continually ask the sender to invoke methods on its behalf.
 #
 # == Replaying packet logs
 #

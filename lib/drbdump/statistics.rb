@@ -191,9 +191,9 @@ class DRbDump::Statistics
 
     puts 'Results received:'
     print 'success:   %2$*1$s received, ' % [count_width, success_count]
-    puts 'average of %6g allocations, %7.3f std. dev.' % success_stats
+    puts 'average of %7.3f allocations, %7.3f std. dev.' % success_stats
     print 'exception: %2$*1$s received, ' % [count_width, exception_count]
-    puts 'average of %6g allocations, %7.3f std. dev.' % exception_stats
+    puts 'average of %7.3f allocations, %7.3f std. dev.' % exception_stats
   end
 
   ##
