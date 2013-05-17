@@ -2,6 +2,9 @@ require 'minitest/autorun'
 require 'drbdump'
 require 'tempfile'
 
+# force time zone to mine
+ENV['TZ'] = 'PST8PDT'
+
 ##
 # A test case for writing DRbDump tests.
 
