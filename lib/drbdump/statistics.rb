@@ -105,12 +105,23 @@ class DRbDump::Statistics
     update_statistics stats, result.count_allocations
   end
 
+  def row_statistics stats
+    count, m_2, mean = stats.values_at :count, :M_2, :mean
+
+    std_dev = Math.sqrt m_2 / (count - 1)
+
+    [count, mean, std_dev]
+  end
+
   ##
   # Writes all statistics on packets and messages processesed to $stdout
 
   def show
     show_basic
+    puts
     show_per_message
+    puts
+    show_per_result
   end
 
   ##
@@ -127,7 +138,7 @@ class DRbDump::Statistics
 
   ##
   # Shows per-message-send statistics including arguments per calls, count of
-  # calls and average and standard deviation of arguments.
+  # calls and average and standard deviation of allocations.
 
   def show_per_message
     max_name_size = 0
@@ -160,10 +171,29 @@ class DRbDump::Statistics
       '%-2$*1$s (%4$*3$s args) %6$*5$d sent, ' % [
           max_name_size, message, argc_width, argc, sends_width, count,
       ] + 
-      'average of %6g allocations, %5.3g std. dev.' % [mean, std_dev]
+      'average of %6g allocations, %7.3f std. dev.' % [mean, std_dev]
     end  
 
+    puts 'Messages sent:'
     puts output
+  end
+
+  ##
+  # Shows per-result statistics including amount of normal and exception
+  # results, average allocations per result and standard deviation of
+  # allocations.
+
+  def show_per_result
+    success_count,   *success_stats   = row_statistics @result_receipts[true]
+    exception_count, *exception_stats = row_statistics @result_receipts[false]
+
+    count_width = [success_count.to_s.length, exception_count.to_s.length].max
+
+    puts 'Results received:'
+    print 'success:   %2$*1$s received, ' % [count_width, success_count]
+    puts 'average of %6g allocations, %7.3f std. dev.' % success_stats
+    print 'exception: %2$*1$s received, ' % [count_width, exception_count]
+    puts 'average of %6g allocations, %7.3f std. dev.' % exception_stats
   end
 
   ##

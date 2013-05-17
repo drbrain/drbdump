@@ -113,9 +113,35 @@ class TestDRbDumpStatistics < DRbDump::TestCase
     end
 
     expected = <<-EXPECTED
-one   (2 args)  4 sent, average of      8 allocations, 0.289 std. dev.
-one   (3 args)  2 sent, average of     12 allocations, 0.707 std. dev.
-three (1 args) 20 sent, average of      2 allocations,     0 std. dev.
+Messages sent:
+one   (2 args)  4 sent, average of      8 allocations,   0.289 std. dev.
+one   (3 args)  2 sent, average of     12 allocations,   0.707 std. dev.
+three (1 args) 20 sent, average of      2 allocations,   0.000 std. dev.
+    EXPECTED
+
+    assert_equal expected, out
+  end
+
+  def test_show_per_result
+    @statistics.result_receipts[true] = {
+      M_2:    0.1,
+      mean:   9.5,
+      count: 20,
+    }
+    @statistics.result_receipts[false] = {
+      M_2:    0.25,
+      mean:  20.0,
+      count:  4,
+    }
+
+    out, = capture_io do
+      @statistics.show_per_result
+    end
+
+    expected = <<-EXPECTED
+Results received:
+success:   20 received, average of    9.5 allocations,   0.073 std. dev.
+exception:  4 received, average of     20 allocations,   0.289 std. dev.
     EXPECTED
 
     assert_equal expected, out
