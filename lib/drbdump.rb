@@ -108,7 +108,7 @@ require 'thread'
 # end needs to continually ask the sender to invoke methods on its behalf.  To
 # help determine if changes you make are causing too many messages drbdump
 # shows the number of messages sent between peers:
-#  
+#
 #   Peers:
 #   30 messages from "druby://a.example:54430" to "druby://b.example:54428"
 #   10 messages from "druby://b.example:54427" to "druby://a.example:54425"
