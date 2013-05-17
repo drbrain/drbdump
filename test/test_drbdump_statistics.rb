@@ -33,6 +33,17 @@ class TestDRbDumpStatistics < DRbDump::TestCase
     assert_equal expected, @statistics.message_sends['message'][3]
   end
 
+  def test_add_peer
+    packet = packets(ARG_DUMP).first
+
+    source      = packet.source      resolver
+    destination = packet.destination resolver
+
+    @statistics.add_peer source, destination
+
+    assert_equal 1, @statistics.peer_counts[source][destination]
+  end
+
   def test_add_result_receipt_exception
     result = @MS.new "\x04\x08\"\x09FAIL" # not an exception
 
@@ -86,6 +97,25 @@ class TestDRbDumpStatistics < DRbDump::TestCase
 1 messages sent
 2 results received
 1 exceptions raised
+    EXPECTED
+
+    assert_equal expected, out
+  end
+
+  def test_show_peers
+    @statistics.peer_counts['a.example.50100']['b.example.51000'] = 1
+    @statistics.peer_counts['b.example.51000']['a.example.50100'] = 2
+    @statistics.peer_counts['c.example.52000']['a.example.50100'] = 3
+
+    out, = capture_io do
+      @statistics.show_peers
+    end
+
+    expected = <<-EXPECTED
+Peers:
+3 messages from c.example.52000 to a.example.50100
+2 messages from b.example.51000 to a.example.50100
+1 messages from a.example.50100 to b.example.51000
     EXPECTED
 
     assert_equal expected, out

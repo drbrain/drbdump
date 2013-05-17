@@ -30,6 +30,11 @@ class DRbDump::Statistics
   attr_accessor :message_sends
 
   ##
+  # Counts message sent between peers.
+
+  attr_accessor :peer_counts
+
+  ##
   # Records statistics about result receipts.  +true+ is used for successful
   # messages while +false+ is used for exceptions.
 
@@ -63,6 +68,10 @@ class DRbDump::Statistics
       end
     end
 
+    @peer_counts = Hash.new do |counts, source|
+      counts[source] = Hash.new 0
+    end
+
     @result_receipts = Hash.new do |result_receipts, success|
       result_receipts[success] = {
         M_2:   0.0,
@@ -73,7 +82,7 @@ class DRbDump::Statistics
   end
 
   ##
-  # Adds a message-send to the counter
+  # Adds a message-send to the counters
 
   def add_message_send receiver, message, argv, block
     @drb_message_sends += 1
@@ -94,6 +103,13 @@ class DRbDump::Statistics
   end
 
   ##
+  # Adds one extra peer contact between +source+ and +destination+
+
+  def add_peer source, destination
+    @peer_counts[source][destination] += 1
+  end
+
+  ##
   # Adds a result-receipt to the counter
 
   def add_result_receipt success, result
@@ -105,7 +121,7 @@ class DRbDump::Statistics
     update_statistics stats, result.count_allocations
   end
 
-  def row_statistics stats
+  def row_statistics stats # :nodoc:
     count, m_2, mean = stats.values_at :count, :M_2, :mean
 
     std_dev = Math.sqrt m_2 / (count - 1)
@@ -122,6 +138,8 @@ class DRbDump::Statistics
     show_per_message
     puts
     show_per_result
+    puts
+    show_peers
   end
 
   ##
@@ -137,6 +155,42 @@ class DRbDump::Statistics
   end
 
   ##
+  # Shows peer statistics
+
+  def show_peers
+    rows = []
+
+    max_count         = 0
+    destination_width = 0
+    source_width      = 0
+
+    @peer_counts.each do |source, destinations|
+      source_width = [source_width, source.length].max
+
+      destinations.each do |destination, count|
+        destination_width = [destination_width, destination.length].max
+        max_count         = [max_count, count].max
+
+        rows << [count, source, destination]
+      end
+    end
+
+    count_width = max_count.to_s.length
+
+    rows = rows.sort_by { |count,| -count }
+
+    output = rows.map do |count, source, destination|
+      '%2$*1$s messages from %4$*3$s to %6$*5$s' % [
+        count_width, count, source_width, source,
+        destination_width, destination
+      ]
+    end
+
+    puts 'Peers:'
+    puts output
+  end
+
+  ##
   # Shows per-message-send statistics including arguments per calls, count of
   # calls and average and standard deviation of allocations.
 
@@ -148,7 +202,7 @@ class DRbDump::Statistics
     rows = []
 
     @message_sends.each do |message, argc_counts|
-      max_name_size = [max_name_size, message.size].max
+      max_name_size = [max_name_size, message.length].max
 
       argc_counts.each do |argc, stats|
         count, m_2, mean = stats.values_at :count, :M_2, :mean

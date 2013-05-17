@@ -105,7 +105,17 @@ require 'thread'
 # reduce the size of the messages sent.
 #
 # Switching entirely to sending references may increase latency as the remote
-# end needs to continually ask the sender to invoke methods on its behalf.
+# end needs to continually ask the sender to invoke methods on its behalf.  To
+# help determine if changes you make are causing too many messages drbdump
+# shows the number of messages sent between peers:
+#  
+#   Peers:
+#   30 messages from "druby://a.example:54430" to "druby://b.example:54428"
+#   10 messages from "druby://b.example:54427" to "druby://a.example:54425"
+#    5 messages from "druby://a.example:54433" to "druby://c.example:54431"
+#
+# An efficient API between peers would send the fewest messages with the
+# fewest allocations.
 #
 # == Replaying packet logs
 #
@@ -434,6 +444,8 @@ Usage: #{opt.program_name} [options]
     argv = argv.join ', '
 
     source, destination = resolve_addresses packet
+
+    @statistics.add_peer source, destination
 
     puts "%s %s \u21d2 (%s, %p).%s(%s)" % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
