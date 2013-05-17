@@ -166,6 +166,11 @@ class DRbDump
   attr_accessor :resolver
 
   ##
+  # If true no per-packet information will be shown
+
+  attr_accessor :quiet
+
+  ##
   # Directory to chroot to after starting packet capture devices (which
   # require root privileges)
   #
@@ -192,6 +197,7 @@ class DRbDump
   def self.process_args argv
     options = {
       devices:          [],
+      quiet:            false,
       resolve_names:    true,
       run_as_directory: nil,
       run_as_user:      nil,
@@ -227,6 +233,13 @@ Usage: #{opt.program_name} [options]
 
       opt.on('-n', 'Disable name resolution') do |do_not_resolve_names|
         options[:resolve_names] = !do_not_resolve_names
+      end
+
+      opt.separator nil
+
+      opt.on('-q', '--quiet',
+             'Do not print per-message information.') do |quiet|
+        options[:quiet] = quiet
       end
 
       opt.separator nil
@@ -292,6 +305,7 @@ Usage: #{opt.program_name} [options]
     @incoming_packets = Queue.new
     @incomplete_drb   = {}
     @loader           = DRbDump::Loader.new @drb_config
+    @quiet            = options[:quiet]
     @resolver         = Resolv if options[:resolve_names]
     @run_as_directory = options[:run_as_directory]
     @run_as_user      = options[:run_as_user]
@@ -342,6 +356,10 @@ Usage: #{opt.program_name} [options]
   # Currently only understands RingFinger broadcast packets.
 
   def display_ring_finger packet
+    @statistics.rinda_packet_count += 1
+
+    return if @quiet
+
     obj = Marshal.load packet.payload
 
     (_, tell), timeout = obj
@@ -351,8 +369,6 @@ Usage: #{opt.program_name} [options]
       packet.destination(@resolver), tell.__drburi,
       timeout
     ]
-
-    @statistics.rinda_packet_count += 1
   rescue
   end
 
@@ -406,6 +422,8 @@ Usage: #{opt.program_name} [options]
 
     @statistics.add_result_receipt success, result
 
+    return if @quiet
+
     result = result.load
 
     result = if DRb::DRbObject === result then
@@ -437,15 +455,17 @@ Usage: #{opt.program_name} [options]
 
     @statistics.add_message_send ref, msg, argv, block
 
+    source, destination = resolve_addresses packet
+
+    @statistics.add_peer source, destination
+
+    return if @quiet
+
     ref = ref.load
 
     argv.map! { |obj| obj.load.inspect }
     (argv << '&block') if block.load
     argv = argv.join ', '
-
-    source, destination = resolve_addresses packet
-
-    @statistics.add_peer source, destination
 
     puts "%s %s \u21d2 (%s, %p).%s(%s)" % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
@@ -459,6 +479,8 @@ Usage: #{opt.program_name} [options]
   # transmit.
 
   def display_drb_too_large packet
+    return if @quiet
+
     load_limit = @drb_config[:load_limit]
     rest = packet.payload
 

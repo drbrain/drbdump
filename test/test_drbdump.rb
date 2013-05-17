@@ -40,6 +40,16 @@ class TestDRbDump < DRbDump::TestCase
     assert_equal 1, e.status
   end
 
+  def test_class_process_args_quiet
+    options = DRbDump.process_args %w[--quiet]
+
+    assert options[:quiet]
+
+    options = DRbDump.process_args %w[-q]
+
+    assert options[:quiet]
+  end
+
   def test_class_process_args_resolve_names
     options = DRbDump.process_args %w[-n]
 
@@ -136,6 +146,22 @@ class TestDRbDump < DRbDump::TestCase
     assert_equal 1, @statistics.drb_result_receipts
   end
 
+  def test_display_drb_recv_msg_quiet
+    send_msg = packets(PING_DUMP).find do |packet|
+      packet.payload =~ /\x00\x03\x04\x08T/
+    end
+
+    drbdump
+    @drbdump.quiet = true
+
+    assert_silent do
+      @drbdump.display_drb send_msg
+    end
+
+    assert_equal 1, @statistics.drb_packet_count
+    assert_equal 1, @statistics.drb_result_receipts
+  end
+
   def test_display_drb_send_msg
     send_msg = packets(ARG_DUMP).find { |packet| packet.payload =~ /ping/ }
 
@@ -151,6 +177,21 @@ class TestDRbDump < DRbDump::TestCase
 
     assert_equal 1, @statistics.drb_packet_count
     assert_equal 1, @statistics.drb_message_sends
+  end
+
+  def test_display_drb_send_msg_quiet
+    send_msg = packets(ARG_DUMP).find { |packet| packet.payload =~ /ping/ }
+
+    drbdump
+    @drbdump.quiet = true
+
+    assert_silent do
+      @drbdump.display_drb send_msg
+    end
+
+    assert_equal 1, @statistics.drb_packet_count
+    assert_equal 1, @statistics.drb_message_sends
+    refute_empty @statistics.peer_counts
   end
 
   def test_display_drb_too_large
@@ -172,6 +213,17 @@ class TestDRbDump < DRbDump::TestCase
     assert_equal 0, @statistics.drb_packet_count
   end
 
+  def test_display_drb_too_large_quiet
+    drbdump
+    @drbdump.quiet = true
+
+    assert_silent do
+      packets(TOO_LARGE_DUMP).each do |packet|
+        @drbdump.display_drb packet
+      end
+    end
+  end
+
   def test_display_ring_finger
     out, = capture_io do
       drbdump.display_ring_finger packets(RING_DUMP).first
@@ -182,6 +234,17 @@ class TestDRbDump < DRbDump::TestCase
     EXPECTED
 
     assert_equal expected, out
+
+    assert_equal 1, @statistics.rinda_packet_count
+  end
+
+  def test_display_ring_finger_quiet
+    drbdump
+    @drbdump.quiet = true
+
+    assert_silent do
+      @drbdump.display_ring_finger packets(RING_DUMP).first
+    end
 
     assert_equal 1, @statistics.rinda_packet_count
   end
