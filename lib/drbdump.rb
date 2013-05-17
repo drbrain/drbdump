@@ -146,6 +146,11 @@ class DRbDump
   TIMESTAMP_FORMAT = '%H:%M:%S.%6N' # :nodoc:
 
   ##
+  # Number of messages to process before stopping
+
+  attr_accessor :count
+
+  ##
   # Tracks if TCP packets contain DRb content or not
 
   attr_reader :drb_streams # :nodoc:
@@ -196,6 +201,7 @@ class DRbDump
 
   def self.process_args argv
     options = {
+      count:            Float::INFINITY,
       devices:          [],
       quiet:            false,
       resolve_names:    true,
@@ -219,13 +225,24 @@ Usage: #{opt.program_name} [options]
 
       opt.separator nil
 
+      opt.on('-c', '--count MESSAGES', Integer,
+             'Capture the given number of message sends',
+             'and exit, printing statistics.',
+             "\n",
+             'Use with -q to analyze a sample of traffic') do |count|
+        options[:count] = count
+      end
+
+      opt.separator nil
+
       opt.on('-i', '--interface INTERFACE',
              'The interface to listen on or a tcpdump',
              'packet capture file.  Multiple interfaces',
              'can be specified.',
              "\n",
-             'The tcpdump default interface is also the',
-             'drbdump default') do |interface|
+             'The tcpdump default interface and the',
+             'loopback interface are the drbdump',
+             'defaults') do |interface|
         options[:devices] << interface
       end
 
@@ -300,6 +317,7 @@ Usage: #{opt.program_name} [options]
   #   Only useful with :run_as_user
 
   def initialize options
+    @count            = options[:count] || Float::INFINITY
     @devices          = options[:devices]
     @drb_config       = DRb::DRbServer.make_config
     @incoming_packets = Queue.new
@@ -330,8 +348,10 @@ Usage: #{opt.program_name} [options]
 
     @devices.uniq!
 
-    @statistics  = DRbDump::Statistics.new
+    @capps       = []
     @drb_streams = {}
+    @running     = false
+    @statistics  = DRbDump::Statistics.new
   end
 
   ##
@@ -378,6 +398,7 @@ Usage: #{opt.program_name} [options]
   def display_drb packet
     payload = packet.payload
 
+    return unless @running
     return if payload.empty?
 
     source = packet.source
@@ -397,6 +418,8 @@ Usage: #{opt.program_name} [options]
     case first_chunk.load
     when nil, Integer then
       display_drb_send packet, first_chunk, stream
+
+      stop if @statistics.drb_message_sends >= count
     when true, false then
       display_drb_recv packet, first_chunk, stream
     else
@@ -508,8 +531,10 @@ Usage: #{opt.program_name} [options]
   # Displays each captured packet.
 
   def display_packets
+    @running = true
+
     @display_thread = Thread.new do
-      while packet = @incoming_packets.deq do
+      while @running and packet = @incoming_packets.deq do
         if packet.udp? then
           display_ring_finger packet
         else
@@ -548,24 +573,23 @@ Usage: #{opt.program_name} [options]
   rescue Interrupt
     untrap_info
 
-    capps.each do |capp|
-      capp.stop
-    end
-
-    @incoming_packets.enq nil
+    stop
 
     @display_thread.join
 
     puts # clear ^C
-    @statistics.show
 
     exit
+  ensure
+    @statistics.show
   end
 
   ##
   # Captures DRb packets and feeds them to the incoming_packets queue
 
   def start_capture capps
+    @capps.concat capps
+
     capps.map do |capp|
       Thread.new do
         fin_or_rst = Capp::TCP_FIN | Capp::TCP_RST
@@ -585,6 +609,16 @@ Usage: #{opt.program_name} [options]
         end
       end
     end
+  end
+
+  def stop
+    @running = false
+
+    @capps.each do |capp|
+      capp.stop
+    end
+
+    @incoming_packets.enq nil
   end
 
   ##

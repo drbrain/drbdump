@@ -2,13 +2,24 @@ require 'drbdump/test_case'
 
 class TestDRbDump < DRbDump::TestCase
 
+  def test_class_process_args_count
+    options = DRbDump.process_args %w[--count 50]
+
+    assert_equal 50, options[:count]
+
+    options = DRbDump.process_args %w[-c 49]
+
+    assert_equal 49, options[:count]
+  end
+
   def test_class_process_args_defaults
     options = DRbDump.process_args []
 
-    assert_equal [],   options[:devices]
-    assert_equal true, options[:resolve_names]
-    assert_equal nil,  options[:run_as_directory]
-    assert_equal nil,  options[:run_as_user]
+    assert_equal Float::INFINITY,  options[:count]
+    assert_equal [],               options[:devices]
+    assert_equal true,             options[:resolve_names]
+    assert_equal nil,              options[:run_as_directory]
+    assert_equal nil,              options[:run_as_user]
   end
 
   def test_class_process_args_devices
@@ -80,6 +91,22 @@ class TestDRbDump < DRbDump::TestCase
     assert packet.udp?
 
     assert_equal Rinda::Ring_PORT, packet.udp_header.destination_port
+  end
+
+  def test_display_drb_count
+    send_msg = packets(ARG_DUMP).find { |packet| packet.payload =~ /ping/ }
+
+    drbdump
+
+    @drbdump.count = 1
+
+    capture_io do
+      @drbdump.display_drb send_msg
+      @drbdump.display_drb send_msg
+    end
+
+    assert_equal 1, @statistics.drb_packet_count
+    assert_equal 1, @statistics.drb_message_sends
   end
 
   def test_display_drb_http

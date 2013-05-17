@@ -48,6 +48,7 @@ class DRbDump::TestCase < MiniTest::Unit::TestCase
 
   def drbdump file = PING_DUMP
     @drbdump = DRbDump.new devices: [file]
+    @drbdump.instance_variable_set :@running, true
     @drbdump.resolver = resolver
 
     @statistics = @drbdump.statistics
