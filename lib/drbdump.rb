@@ -294,7 +294,7 @@ Usage: #{opt.program_name} [options]
 
       loopback = devices.find do |device|
         device.addresses.any? do |address|
-          %w[127.0.0.1x x::1].include? address.address
+          %w[127.0.0.1 ::1].include? address.address
         end
       end
 
