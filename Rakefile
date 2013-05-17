@@ -24,7 +24,7 @@ Hoe.spec 'drbdump' do
   self.licenses << 'MIT'
 
   self.extra_deps << ['capp', '~> 1.0']
-  self.extra_deps << ['marshal-structure', '~> 1.0']
+  self.extra_deps << ['marshal-structure', '~> 2.0']
 end
 
 # vim: syntax=ruby
