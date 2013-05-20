@@ -5,6 +5,8 @@ README.rdoc
 Rakefile
 bin/drbdump
 example/ping.rb
+example/service_primes.rb
+example/tuplespace_primes.rb
 lib/drbdump.rb
 lib/drbdump/loader.rb
 lib/drbdump/statistics.rb
