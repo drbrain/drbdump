@@ -40,6 +40,10 @@ class DRbDump::Loader
     @load_limit = config[:load_limit]
   end
 
+  ##
+  # Returns the next component from a DRb message +stream+ as a
+  # Marshal::Structure object.
+
   def load stream
     begin
       size = stream.read 4
