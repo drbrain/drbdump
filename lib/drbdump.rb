@@ -447,7 +447,7 @@ Usage: #{opt.program_name} [options]
 
     return if @quiet
 
-    result = result.load
+    result = load_marshal_data result
 
     result = if DRb::DRbObject === result then
                "(\"druby://#{result.__drburi}\", #{result.__drbref})"
@@ -486,7 +486,7 @@ Usage: #{opt.program_name} [options]
 
     ref = ref.load
 
-    argv.map! { |obj| obj.load.inspect }
+    argv.map! { |obj| load_marshal_data(obj).inspect }
     (argv << '&block') if block.load
     argv = argv.join ', '
 
@@ -542,6 +542,16 @@ Usage: #{opt.program_name} [options]
         end
       end
     end
+  end
+
+  ##
+  # Loads Marshal data in +object+ if possible, or returns a DRb::DRbUnknown
+  # if there was some error
+
+  def load_marshal_data object
+    object.load
+  rescue NameError, ArgumentError => e
+    DRb::DRbUnknown.new e, object.stream
   end
 
   ##

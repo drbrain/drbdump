@@ -276,6 +276,20 @@ class TestDRbDump < DRbDump::TestCase
     assert_equal 1, @statistics.rinda_packet_count
   end
 
+  def test_load_marshal_data
+    drbdump
+
+    marshal_structure = Marshal::Structure.new "\x04\x08i\x06"
+
+    assert_equal 1, @drbdump.load_marshal_data(marshal_structure)
+
+    marshal_structure = Marshal::Structure.new "\x04\x08o:\x06C\x00"
+
+    loaded = @drbdump.load_marshal_data marshal_structure
+
+    assert_kind_of DRb::DRbUnknown, loaded
+  end
+
   def test_start_capture
     drbdump RING_DUMP
 
