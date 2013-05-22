@@ -534,21 +534,11 @@ Usage: #{opt.program_name} [options]
   def display_drb_too_large packet
     return if @quiet
 
-    load_limit = @drb_config[:load_limit]
     rest = packet.payload
 
     source, destination = resolve_addresses packet
 
-    size  = nil
-    valid = []
-
-    loop do
-      size, rest = rest.unpack 'Na*'
-
-      break if load_limit < size
-
-      valid << Marshal.load(rest.slice!(0, size)).inspect
-    end
+    valid, size, rest = valid_in_payload rest
 
     puts '%s %s to %s packet too large, valid: [%s] too big (%d bytes): %s' % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
@@ -717,6 +707,27 @@ Usage: #{opt.program_name} [options]
     return unless Signal.list['INFO']
 
     trap 'INFO', 'DEFAULT'
+  end
+
+  ##
+  # Returns the valid parts, the size and content of the invalid part in
+  # +large_packet+
+
+  def valid_in_payload too_large
+    load_limit = @drb_config[:load_limit]
+
+    size  = nil
+    valid = []
+
+    loop do
+      size, too_large = too_large.unpack 'Na*'
+
+      break if load_limit < size
+
+      valid << Marshal.load(too_large.slice!(0, size)).inspect
+    end
+
+    return valid, size, too_large
   end
 
 end
