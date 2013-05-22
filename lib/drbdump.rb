@@ -483,10 +483,7 @@ Usage: #{opt.program_name} [options]
   # Writes a DRb packet for a message-send to standard output.
 
   def display_drb_send packet, ref, stream # :nodoc:
-    msg   = @loader.load stream
-    argc  = @loader.load(stream).load
-    argv  = argc.times.map do @loader.load stream end
-    block = @loader.load stream
+    msg, argv, block = load_message_send stream
 
     @statistics.add_message_send ref, msg, argv, block
 
@@ -564,6 +561,19 @@ Usage: #{opt.program_name} [options]
     object.load
   rescue NameError, ArgumentError => e
     DRb::DRbUnknown.new e, object.stream
+  end
+
+  ##
+  # Returns the message, arguments and block for the DRb message-send in
+  # +stream+.
+
+  def load_message_send stream # :nodoc:
+    msg   = @loader.load stream
+    argc  = @loader.load(stream).load
+    argv  = argc.times.map do @loader.load stream end
+    block = @loader.load stream
+
+    return msg, argv, block
   end
 
   ##
