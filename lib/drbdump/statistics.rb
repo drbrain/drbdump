@@ -147,9 +147,9 @@ class DRbDump::Statistics
       max_outer_size = [max_outer_size, outer_key.to_s.size].max
 
       inner.each do |inner_key, stat|
-        count, _, _, mean, std_dev = stat.to_a
+        count, *rest = stat.to_a
 
-        rows << [outer_key, inner_key, count, mean, std_dev]
+        rows << [outer_key, inner_key, count, *rest]
 
         max_inner_size = [max_inner_size, inner_key.to_s.size].max
         max_count      = [max_count, count].max
@@ -203,11 +203,13 @@ class DRbDump::Statistics
 
     rows = rows.sort_by { |_, _, count| -count }
 
-    output = rows.map do |source, destination, count, mean, std_dev|
+    output = rows.map do |source, destination, count, min, mean, max, std_dev|
       unit = 's'
 
       if mean < 1 then
+        min     *= 1000
         mean    *= 1000
+        max     *= 1000
         std_dev *= 1000
         unit = 'ms'
       end
@@ -215,12 +217,12 @@ class DRbDump::Statistics
       '%2$*1$s messages from %4$*3$s to %6$*5$s ' % [
         count_size, count, source_size, source, destination_size, destination
       ] +
-      'average %0.3f %s, %0.3f std. dev.' % [
-        mean, unit, std_dev
+      '%0.3f, %0.3f, %0.3f, %0.3f %s' % [
+        min, mean, max, std_dev, unit
       ]
     end
 
-    puts 'Peers:'
+    puts 'Peers min, avg, max, stddev:'
     puts output
   end
 
@@ -233,14 +235,14 @@ class DRbDump::Statistics
 
     rows.sort_by { |message, argc,| [message, argc] }
 
-    output = rows.map do |message, argc, count, mean, std_dev|
+    output = rows.map do |message, argc, count, *stats|
       '%-2$*1$s (%4$*3$s args) %6$*5$d sent, ' % [
           name_size, message, argc_size, argc, sends_size, count,
       ] +
-      'average of %5.1f allocations, %7.3f std. dev.' % [mean, std_dev]
+      '%0.1f, %0.1f, %0.1f, %0.1f allocations' % stats
     end
 
-    puts 'Messages sent:'
+    puts 'Messages sent min, avg, max, stddev:'
     puts output
   end
 
@@ -253,13 +255,20 @@ class DRbDump::Statistics
     success_count,   *success_stats   = @result_receipts[true].to_a
     exception_count, *exception_stats = @result_receipts[false].to_a
 
+    return if success_count.zero? and exception_count.zero?
+
     count_width = [success_count.to_s.length, exception_count.to_s.length].max
 
-    puts 'Results received:'
-    print 'success:   %2$*1$s received, ' % [count_width, success_count]
-    puts 'average of %5.1f allocations, %7.3f std. dev.' % success_stats
-    print 'exception: %2$*1$s received, ' % [count_width, exception_count]
-    puts 'average of %5.1f allocations, %7.3f std. dev.' % exception_stats
+    puts 'Results received min, avg, max, stddev:'
+    unless success_count.zero? then
+      print 'success:   %2$*1$s received, ' % [count_width, success_count]
+      puts '%0.1f, %0.1f, %0.1f, %0.1f allocations' % success_stats
+    end
+
+    unless exception_count.zero? then
+      print 'exception: %2$*1$s received, ' % [count_width, exception_count]
+      puts '%0.1f, %0.1f, %0.1f, %0.1f allocations' % exception_stats
+    end
   end
 
 end

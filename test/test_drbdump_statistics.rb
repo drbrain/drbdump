@@ -29,7 +29,7 @@ class TestDRbDumpStatistics < DRbDump::TestCase
 
     assert_equal  1,    stat.count
     assert_equal 10.0,  stat.mean
-    assert_equal 'NaN', stat.standard_deviation.to_s
+    assert_equal  0.0, stat.standard_deviation
   end
 
   def test_add_result_receipt_exception
@@ -42,9 +42,9 @@ class TestDRbDumpStatistics < DRbDump::TestCase
 
     stat = @statistics.result_receipts[false]
 
-    assert_equal  1,    stat.count
-    assert_equal 1.0,   stat.mean
-    assert_equal 'NaN', stat.standard_deviation.to_s
+    assert_equal 1,   stat.count
+    assert_equal 1.0, stat.mean
+    assert_equal 0.0, stat.standard_deviation
   end
 
   def test_add_result_receipt_success
@@ -57,9 +57,9 @@ class TestDRbDumpStatistics < DRbDump::TestCase
 
     stat = @statistics.result_receipts[true]
 
-    assert_equal  1,    stat.count
-    assert_equal 2.0,   stat.mean
-    assert_equal 'NaN', stat.standard_deviation.to_s
+    assert_equal 1,   stat.count
+    assert_equal 2.0, stat.mean
+    assert_equal 0.0, stat.standard_deviation
   end
 
   def test_add_result_timestamp
@@ -121,10 +121,10 @@ class TestDRbDumpStatistics < DRbDump::TestCase
     end
 
     expected = <<-EXPECTED
-Peers:
-8 messages from a.example.50100 to b.example.51000 average 5.804 s, 3.420 std. dev.
-5 messages from b.example.51000 to a.example.50100 average 6.493 s, 1.840 std. dev.
-1 messages from c.example.52000 to a.example.50100 average 5.942 s, NaN std. dev.
+Peers min, avg, max, stddev:
+8 messages from a.example.50100 to b.example.51000 2.200, 5.804, 10.477, 3.420 s
+5 messages from b.example.51000 to a.example.50100 3.585, 6.493, 8.198, 1.840 s
+1 messages from c.example.52000 to a.example.50100 5.942, 5.942, 5.942, 0.000 s
     EXPECTED
 
     assert_equal expected, out
@@ -140,10 +140,10 @@ Peers:
     end
 
     expected = <<-EXPECTED
-Messages sent:
-one   (2 args) 8 sent, average of   5.8 allocations,   3.420 std. dev.
-one   (3 args) 5 sent, average of   6.5 allocations,   1.840 std. dev.
-three (1 args) 1 sent, average of   5.9 allocations,     NaN std. dev.
+Messages sent min, avg, max, stddev:
+one   (2 args) 8 sent, 2.2, 5.8, 10.5, 3.4 allocations
+one   (3 args) 5 sent, 3.6, 6.5, 8.2, 1.8 allocations
+three (1 args) 1 sent, 5.9, 5.9, 5.9, 0.0 allocations
     EXPECTED
 
     assert_equal expected, out
@@ -158,12 +158,21 @@ three (1 args) 1 sent, average of   5.9 allocations,     NaN std. dev.
     end
 
     expected = <<-EXPECTED
-Results received:
-success:   8 received, average of   2.2 allocations,  10.477 std. dev.
-exception: 5 received, average of   3.6 allocations,   8.198 std. dev.
+Results received min, avg, max, stddev:
+success:   8 received, 2.2, 5.8, 10.5, 3.4 allocations
+exception: 5 received, 3.6, 6.5, 8.2, 1.8 allocations
     EXPECTED
 
     assert_equal expected, out
+  end
+
+  def test_show_per_result_no_messages
+    @statistics.result_receipts[true]  = DRbDump::Statistic.new
+    @statistics.result_receipts[false] = DRbDump::Statistic.new
+
+    assert_silent do
+      @statistics.show_per_result
+    end
   end
 
   def statistic
