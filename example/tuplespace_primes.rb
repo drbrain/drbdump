@@ -95,11 +95,12 @@ class Primes
   # Determines the next index where a value can be added to the +stream+.
 
   def head_index stream
-    _, index = @tuple_space.take [:"#{stream}_head", nil]
+    head = :"#{stream}_head"
+    _, index = @tuple_space.take [head, nil]
 
     index
   ensure
-    @tuple_space.write [stream, index + 1]
+    @tuple_space.write [head, index + 1]
   end
 
   ##
