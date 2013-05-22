@@ -159,8 +159,8 @@ three (1 args) 1 sent, average of   5.9 allocations,     NaN std. dev.
 
     expected = <<-EXPECTED
 Results received:
-success:   8 received, average of   5.8 allocations,   3.420 std. dev.
-exception: 5 received, average of   6.5 allocations,   1.840 std. dev.
+success:   8 received, average of   2.2 allocations,  10.477 std. dev.
+exception: 5 received, average of   3.6 allocations,   8.198 std. dev.
     EXPECTED
 
     assert_equal expected, out

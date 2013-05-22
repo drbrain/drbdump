@@ -147,7 +147,7 @@ class DRbDump::Statistics
       max_outer_size = [max_outer_size, outer_key.to_s.size].max
 
       inner.each do |inner_key, stat|
-        count, mean, std_dev = stat.to_a
+        count, _, _, mean, std_dev = stat.to_a
 
         rows << [outer_key, inner_key, count, mean, std_dev]
 

@@ -1,6 +1,6 @@
 ##
-# Stores the mean, count and standard deviation for a set of values but not
-# the values themselves.
+# Stores the minimum, maximum, mean, count and standard deviation for a set of
+# values but not the values themselves.
 
 class DRbDump::Statistic
 
@@ -10,20 +10,34 @@ class DRbDump::Statistic
   attr_reader :count
 
   ##
+  # The maximum value added
+
+  attr_reader :max
+
+  ##
   # The mean of all values
 
   attr_reader :mean
 
+  ##
+  # The minimum value added
+
+  attr_reader :min
+
   def initialize # :nodoc:
     @M_2   = 0.0
-    @mean  = 0.0
     @count = 0
+    @max   = -Float::INFINITY
+    @mean  = 0.0
+    @min   = Float::INFINITY
   end
 
   ##
   # Adds +value+ to the set of values.  Returns the number of values.
 
   def add value
+    @min = value if value < @min
+    @max = value if value > @max
     @count += 1
 
     delta  = value - @mean
@@ -37,6 +51,16 @@ class DRbDump::Statistic
   # The average of all values
 
   alias average mean
+
+  ##
+  # The maximum value added
+
+  alias maximum max
+
+  ##
+  # The minimum value added
+
+  alias minimum min
 
   ##
   # The sample variance for all values
@@ -57,7 +81,7 @@ class DRbDump::Statistic
   # standard deviation
 
   def to_a
-    [@count, @mean, standard_deviation]
+    [@count, @min, @max, @mean, standard_deviation]
   end
 
 end
