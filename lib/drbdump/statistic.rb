@@ -66,7 +66,9 @@ class DRbDump::Statistic
   # The sample variance for all values
 
   def sample_variance
-    @M_2 / (@count - 1)
+    sv = @M_2 / (@count - 1)
+    return 0.0 if sv.nan?
+    sv
   end
 
   ##
@@ -81,7 +83,7 @@ class DRbDump::Statistic
   # standard deviation
 
   def to_a
-    [@count, @min, @max, @mean, standard_deviation]
+    [@count, @min, @mean, @max, standard_deviation]
   end
 
 end

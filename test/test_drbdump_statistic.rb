@@ -9,6 +9,8 @@ class TestDRbDumpStatistic < DRbDump::TestCase
   def test_add
     assert_equal    0,                @s.count
     assert_in_delta 0.0,              @s.mean
+    assert_in_delta 0.0,              @s.sample_variance
+    assert_in_delta 0.0,              @s.standard_deviation
     assert_equal    Float::INFINITY,  @s.min
     assert_equal(   -Float::INFINITY, @s.max)
 
@@ -16,6 +18,8 @@ class TestDRbDumpStatistic < DRbDump::TestCase
 
     assert_equal    1,   @s.count
     assert_in_delta 4.0, @s.mean
+    assert_in_delta 0.0, @s.sample_variance
+    assert_in_delta 0.0, @s.standard_deviation
     assert_equal    4,   @s.min
     assert_equal    4,   @s.max
 
@@ -83,8 +87,8 @@ class TestDRbDumpStatistic < DRbDump::TestCase
 
     assert_equal      2,    ary.shift
     assert_equal      4,    ary.shift
-    assert_equal      7,    ary.shift
     assert_in_epsilon 5.5,  ary.shift
+    assert_equal      7,    ary.shift
     assert_in_epsilon 2.12, ary.shift
 
     assert_empty ary
