@@ -647,6 +647,10 @@ Usage: #{opt.program_name} [options]
     end
   end
 
+  ##
+  # Stops the message capture and packet display.  If root privileges were
+  # dropped message capture cannot be restarted.
+
   def stop
     @running = false
 
