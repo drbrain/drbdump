@@ -161,6 +161,29 @@ class DRbDump::Statistics
     return max_outer_size, max_inner_size, max_count_size, rows
   end
 
+  def multiple_peers count_size, source_size, destination_size, rows # :nodoc:
+    rows = rows.sort_by { |_, _, count| -count }
+
+    rows.map do |source, destination, count, min, mean, max, std_dev|
+      unit = 's'
+
+      if mean < 1 then
+        min     *= 1000
+        mean    *= 1000
+        max     *= 1000
+        std_dev *= 1000
+        unit = 'ms'
+      end
+
+      '%2$*1$d messages from %4$*3$s to %6$*5$s ' % [
+        count_size, count, source_size, source, destination_size, destination
+      ] +
+      '%0.3f, %0.3f, %0.3f, %0.3f %s' % [
+        min, mean, max, std_dev, unit
+      ]
+    end
+  end
+
   def two_level_statistic_hash # :nodoc:
     Hash.new do |outer, outer_key|
       outer[outer_key] = Hash.new do |inner, inner_key|
@@ -201,29 +224,15 @@ class DRbDump::Statistics
     source_size, destination_size, count_size, rows =
       extract_and_size @peer_latencies
 
-    rows = rows.sort_by { |_, _, count| -count }
+    multiple, single = rows.partition { |_, _, count| count > 1 }
 
-    output = rows.map do |source, destination, count, min, mean, max, std_dev|
-      unit = 's'
+    multiple << single.pop if single.length == 1
 
-      if mean < 1 then
-        min     *= 1000
-        mean    *= 1000
-        max     *= 1000
-        std_dev *= 1000
-        unit = 'ms'
-      end
-
-      '%2$*1$s messages from %4$*3$s to %6$*5$s ' % [
-        count_size, count, source_size, source, destination_size, destination
-      ] +
-      '%0.3f, %0.3f, %0.3f, %0.3f %s' % [
-        min, mean, max, std_dev, unit
-      ]
-    end
+    count_size = [count_size, single.length.to_s.size].max
 
     puts 'Peers min, avg, max, stddev:'
-    puts output
+    puts multiple_peers count_size, source_size, destination_size, multiple
+    puts single_peers count_size, single unless single.empty?
   end
 
   ##
@@ -269,6 +278,21 @@ class DRbDump::Statistics
       print 'exception: %2$*1$s received, ' % [count_width, exception_count]
       puts '%0.1f, %0.1f, %0.1f, %0.1f allocations' % exception_stats
     end
+  end
+
+  def single_peers count_size, rows # :nodoc:
+    return if rows.empty?
+
+    statistic = DRbDump::Statistic.new
+
+    rows.each do |_, _, _, value|
+      statistic.add value
+    end
+
+    count, *rest = statistic.to_a
+
+    '%2$*1$d single-message peers ' % [count_size, count] +
+    '%0.3f, %0.3f, %0.3f, %0.3f s' % rest
   end
 
 end

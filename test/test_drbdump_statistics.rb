@@ -130,6 +130,29 @@ Peers min, avg, max, stddev:
     assert_equal expected, out
   end
 
+  def test_show_peers_collapse_singles
+    s = DRbDump::Statistic.new
+    s.add rand 2.0
+    @statistics.peer_latencies['a.example.50100']['b.example.51000'] = s
+    s = DRbDump::Statistic.new
+    s.add rand 2.0
+    @statistics.peer_latencies['b.example.51000']['a.example.50100'] = s
+    s = DRbDump::Statistic.new
+    s.add rand 2.0
+    @statistics.peer_latencies['c.example.52000']['a.example.50100'] = s
+
+    out, = capture_io do
+      @statistics.show_peers
+    end
+
+    expected = <<-EXPECTED
+Peers min, avg, max, stddev:
+3 single-message peers 0.052, 0.674, 1.099, 0.551 s
+    EXPECTED
+
+    assert_equal expected, out
+  end
+
   def test_show_per_message
     @statistics.message_sends['one'][2]   = statistic
     @statistics.message_sends['one'][3]   = statistic
@@ -175,10 +198,14 @@ exception: 5 received, 3.6, 6.5, 8.2, 1.8 allocations
     end
   end
 
+  def rand *args
+    @random.rand *args
+  end
+
   def statistic
     s = DRbDump::Statistic.new
-    @random.rand(19 + 1).times do
-      s.add @random.rand(10.0) + 1
+    rand(20).times do
+      s.add rand 1..11.0
     end
     s
   end
