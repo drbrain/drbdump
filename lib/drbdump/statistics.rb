@@ -60,11 +60,7 @@ class DRbDump::Statistics
 
     @message_sends = Hash.new do |message_sends, message|
       message_sends[message] = Hash.new do |arg_counts, argc|
-        arg_counts[argc] = {
-          M_2:   0.0,
-          mean:  0.0,
-          count: 0,
-        }
+        arg_counts[argc] = DRbDump::Statistic.new
       end
     end
 
@@ -73,11 +69,7 @@ class DRbDump::Statistics
     end
 
     @result_receipts = Hash.new do |result_receipts, success|
-      result_receipts[success] = {
-        M_2:   0.0,
-        mean:  0.0,
-        count: 0,
-      }
+      result_receipts[success] = DRbDump::Statistic.new
     end
   end
 
@@ -97,9 +89,7 @@ class DRbDump::Statistics
     argv.each { |arg| allocations += arg.count_allocations }
     allocations += block.count_allocations
 
-    stats = @message_sends[message.load][argc]
-
-    update_statistics stats, allocations
+    @message_sends[message.load][argc].add allocations
   end
 
   ##
@@ -116,17 +106,7 @@ class DRbDump::Statistics
     @drb_result_receipts += 1
     @drb_exceptions_raised += 1 unless success
 
-    stats = @result_receipts[success]
-
-    update_statistics stats, result.count_allocations
-  end
-
-  def row_statistics stats # :nodoc:
-    count, m_2, mean = stats.values_at :count, :M_2, :mean
-
-    std_dev = Math.sqrt m_2 / (count - 1)
-
-    [count, mean, std_dev]
+    @result_receipts[success].add result.count_allocations
   end
 
   ##
@@ -204,15 +184,13 @@ class DRbDump::Statistics
     @message_sends.each do |message, argc_counts|
       max_name_size = [max_name_size, message.length].max
 
-      argc_counts.each do |argc, stats|
-        count, m_2, mean = stats.values_at :count, :M_2, :mean
-
-        std_dev = Math.sqrt m_2 / (count - 1)
+      argc_counts.each do |argc, stat|
+        count, mean, std_dev = stat.to_a
 
         rows << [message, argc, count, mean, std_dev]
 
         max_argc  = [max_argc, argc].max
-        max_sends = [max_sends, stats[:count]].max
+        max_sends = [max_sends, count].max
       end
     end
 
@@ -224,9 +202,9 @@ class DRbDump::Statistics
     output = rows.map do |message, argc, count, mean, std_dev|
       '%-2$*1$s (%4$*3$s args) %6$*5$d sent, ' % [
           max_name_size, message, argc_width, argc, sends_width, count,
-      ] + 
+      ] +
       'average of %5.1f allocations, %7.3f std. dev.' % [mean, std_dev]
-    end  
+    end
 
     puts 'Messages sent:'
     puts output
@@ -238,8 +216,8 @@ class DRbDump::Statistics
   # allocations.
 
   def show_per_result
-    success_count,   *success_stats   = row_statistics @result_receipts[true]
-    exception_count, *exception_stats = row_statistics @result_receipts[false]
+    success_count,   *success_stats   = @result_receipts[true].to_a
+    exception_count, *exception_stats = @result_receipts[false].to_a
 
     count_width = [success_count.to_s.length, exception_count.to_s.length].max
 
@@ -248,26 +226,6 @@ class DRbDump::Statistics
     puts 'average of %5.1f allocations, %7.3f std. dev.' % success_stats
     print 'exception: %2$*1$s received, ' % [count_width, exception_count]
     puts 'average of %5.1f allocations, %7.3f std. dev.' % exception_stats
-  end
-
-  ##
-  # Updates +m_2+ (used to calculate the standard deviation) and the +mean+
-  # for the +index+th item of +value+.
-  #
-  # Returns the updated +m_2+ and +mean+
-
-  def update_statistics stats, value # :nodoc:
-    m_2   = stats[:M_2]
-    mean  = stats[:mean]
-    index = stats[:count] + 1
-
-    delta = value - mean
-    mean += delta / index
-    m_2 += delta * (value - mean)
-
-    stats[:M_2]  = m_2
-    stats[:mean] = mean
-    stats[:count]            = index
   end
 
 end

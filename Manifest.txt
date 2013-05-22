@@ -9,6 +9,7 @@ example/service_primes.rb
 example/tuplespace_primes.rb
 lib/drbdump.rb
 lib/drbdump/loader.rb
+lib/drbdump/statistic.rb
 lib/drbdump/statistics.rb
 lib/drbdump/test_case.rb
 test/arg.dump

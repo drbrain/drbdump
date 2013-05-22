@@ -654,4 +654,5 @@ Usage: #{opt.program_name} [options]
 end
 
 require 'drbdump/loader'
+require 'drbdump/statistic'
 require 'drbdump/statistics'

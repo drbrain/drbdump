@@ -8,6 +8,7 @@ class TestDRbDumpStatistics < DRbDump::TestCase
     @MS = Marshal::Structure
 
     @statistics = DRbDump::Statistics.new
+    @random = Random.new 2
   end
 
   def test_add_message_send
@@ -24,13 +25,11 @@ class TestDRbDumpStatistics < DRbDump::TestCase
 
     assert_equal 1, @statistics.drb_message_sends
 
-    expected = {
-      M_2:    0.0,
-      mean:  10.0,
-      count:  1,
-    }
+    stat = @statistics.message_sends['message'][3]
 
-    assert_equal expected, @statistics.message_sends['message'][3]
+    assert_equal  1,    stat.count
+    assert_equal 10.0,  stat.mean
+    assert_equal 'NaN', stat.standard_deviation.to_s
   end
 
   def test_add_peer
@@ -52,13 +51,11 @@ class TestDRbDumpStatistics < DRbDump::TestCase
     assert_equal 1, @statistics.drb_result_receipts
     assert_equal 1, @statistics.drb_exceptions_raised
 
-    expected = {
-      M_2:   0.0,
-      mean:  1.0,
-      count: 1,
-    }
+    stat = @statistics.result_receipts[false]
 
-    assert_equal expected, @statistics.result_receipts[false]
+    assert_equal  1,    stat.count
+    assert_equal 1.0,   stat.mean
+    assert_equal 'NaN', stat.standard_deviation.to_s
   end
 
   def test_add_result_receipt_success
@@ -69,13 +66,11 @@ class TestDRbDumpStatistics < DRbDump::TestCase
     assert_equal 1, @statistics.drb_result_receipts
     assert_equal 0, @statistics.drb_exceptions_raised
 
-    expected = {
-      M_2:   0.0,
-      mean:  2.0,
-      count: 1,
-    }
+    stat = @statistics.result_receipts[true]
 
-    assert_equal expected, @statistics.result_receipts[true]
+    assert_equal  1,    stat.count
+    assert_equal 2.0,   stat.mean
+    assert_equal 'NaN', stat.standard_deviation.to_s
   end
 
   def test_show_basic
@@ -122,21 +117,9 @@ Peers:
   end
 
   def test_show_per_message
-    @statistics.message_sends['one'][2] = {
-      M_2:   0.25,
-      mean:  8.0,
-      count: 4,
-    }
-    @statistics.message_sends['one'][3] = {
-      M_2:    0.5,
-      mean:  12.0,
-      count:  2,
-    }
-    @statistics.message_sends['three'][1] = {
-      M_2:    0.0,
-      mean:   2.0,
-      count: 20,
-    }
+    @statistics.message_sends['one'][2]   = statistic
+    @statistics.message_sends['one'][3]   = statistic
+    @statistics.message_sends['three'][1] = statistic
 
     out, = capture_io do
       @statistics.show_per_message
@@ -144,25 +127,17 @@ Peers:
 
     expected = <<-EXPECTED
 Messages sent:
-one   (2 args)  4 sent, average of   8.0 allocations,   0.289 std. dev.
-one   (3 args)  2 sent, average of  12.0 allocations,   0.707 std. dev.
-three (1 args) 20 sent, average of   2.0 allocations,   0.000 std. dev.
+one   (2 args) 8 sent, average of   5.8 allocations,   3.420 std. dev.
+one   (3 args) 5 sent, average of   6.5 allocations,   1.840 std. dev.
+three (1 args) 1 sent, average of   5.9 allocations,     NaN std. dev.
     EXPECTED
 
     assert_equal expected, out
   end
 
   def test_show_per_result
-    @statistics.result_receipts[true] = {
-      M_2:    0.1,
-      mean:   9.5,
-      count: 20,
-    }
-    @statistics.result_receipts[false] = {
-      M_2:    0.25,
-      mean:  20.0,
-      count:  4,
-    }
+    @statistics.result_receipts[true]  = statistic
+    @statistics.result_receipts[false] = statistic
 
     out, = capture_io do
       @statistics.show_per_result
@@ -170,11 +145,19 @@ three (1 args) 20 sent, average of   2.0 allocations,   0.000 std. dev.
 
     expected = <<-EXPECTED
 Results received:
-success:   20 received, average of   9.5 allocations,   0.073 std. dev.
-exception:  4 received, average of  20.0 allocations,   0.289 std. dev.
+success:   8 received, average of   5.8 allocations,   3.420 std. dev.
+exception: 5 received, average of   6.5 allocations,   1.840 std. dev.
     EXPECTED
 
     assert_equal expected, out
+  end
+
+  def statistic
+    s = DRbDump::Statistic.new
+    @random.rand(19 + 1).times do
+      s.add @random.rand(10.0) + 1
+    end
+    s
   end
 
 end
