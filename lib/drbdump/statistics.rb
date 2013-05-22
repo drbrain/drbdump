@@ -69,11 +69,11 @@ class DRbDump::Statistics
       end
     end
 
-    @peer_latencies = Hash.new do |sources, source|
-      sources[source] = Hash.new do |destinations, destination|
-        destinations[destination] = DRbDump::Statistic.new
-      end
-    end
+    # [message][argc]
+    @message_sends = two_level_statistic_hash
+
+    # [source][destination]
+    @peer_latencies = two_level_statistic_hash
 
     @last_peer_send = Hash.new do |sources, source|
       sources[source] = Hash.new
@@ -134,6 +134,14 @@ class DRbDump::Statistics
 
   def add_send_timestamp source, destination, timestamp
     @last_peer_send[source][destination] = timestamp
+  end
+
+  def two_level_statistic_hash # :nodoc:
+    Hash.new do |outer, outer_key|
+      outer[outer_key] = Hash.new do |inner, inner_key|
+        inner[inner_key] = DRbDump::Statistic.new
+      end
+    end
   end
 
   ##
