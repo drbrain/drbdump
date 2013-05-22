@@ -163,7 +163,12 @@ class DRbDump
   ##
   # Storage for incomplete DRb messages
 
-  attr_reader :incomplete_drb # :nodoc:
+  attr_reader :incomplete_streams # :nodoc:
+
+  ##
+  # The timestamp for the first packet added to an incomplete stream
+
+  attr_reader :incomplete_timestamps # :nodoc:
 
   ##
   # A Resolv-compatible DNS resolver for looking up host names
@@ -317,15 +322,16 @@ Usage: #{opt.program_name} [options]
   #   Only useful with :run_as_user
 
   def initialize options
-    @count            = options[:count] || Float::INFINITY
-    @drb_config       = DRb::DRbServer.make_config
-    @incoming_packets = Queue.new
-    @incomplete_drb   = {}
-    @loader           = DRbDump::Loader.new @drb_config
-    @quiet            = options[:quiet]
-    @resolver         = Resolv if options[:resolve_names]
-    @run_as_directory = options[:run_as_directory]
-    @run_as_user      = options[:run_as_user]
+    @count                 = options[:count] || Float::INFINITY
+    @drb_config            = DRb::DRbServer.make_config
+    @incoming_packets      = Queue.new
+    @incomplete_streams    = {}
+    @incomplete_timestamps = {}
+    @loader                = DRbDump::Loader.new @drb_config
+    @quiet                 = options[:quiet]
+    @resolver              = Resolv if options[:resolve_names]
+    @run_as_directory      = options[:run_as_directory]
+    @run_as_user           = options[:run_as_user]
 
     initialize_devices options[:devices]
 
@@ -408,7 +414,7 @@ Usage: #{opt.program_name} [options]
 
     source = packet.source
 
-    if previous = @incomplete_drb.delete(source) then
+    if previous = @incomplete_streams.delete(source) then
       payload = previous << payload
     elsif /\A....\x04\x08/m !~ payload then
       @drb_streams[source] = false
@@ -433,10 +439,12 @@ Usage: #{opt.program_name} [options]
 
     @statistics.drb_packet_count += 1
     @drb_streams[source] = true
+    @incomplete_timestamps.delete source
   rescue DRbDump::Loader::TooLarge
     display_drb_too_large packet
   rescue DRbDump::Loader::Premature, DRbDump::Loader::DataError
-    @incomplete_drb[source] = payload
+    @incomplete_streams[source] = payload
+    @incomplete_timestamps[source] ||= packet.timestamp
   rescue DRbDump::Loader::Error
     @drb_streams[source] = false
   end
@@ -450,6 +458,10 @@ Usage: #{opt.program_name} [options]
 
     @statistics.add_result_receipt success, result
 
+    source, destination = resolve_addresses packet
+
+    @statistics.add_result_timestamp source, destination, packet.timestamp
+
     return if @quiet
 
     result = load_marshal_data result
@@ -462,8 +474,6 @@ Usage: #{opt.program_name} [options]
 
     message = success ? 'success' : 'exception'
     arrow   = success ? "\u21d0"  : "\u2902"
-
-    source, destination = resolve_addresses packet
 
     puts "%s %s %s %s %s: %s" % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
@@ -483,9 +493,11 @@ Usage: #{opt.program_name} [options]
 
     @statistics.add_message_send ref, msg, argv, block
 
+    timestamp =
+      @incomplete_timestamps.delete(packet.source) || packet.timestamp
     source, destination = resolve_addresses packet
 
-    @statistics.add_peer source, destination
+    @statistics.add_send_timestamp source, destination, timestamp
 
     return if @quiet
 
@@ -613,8 +625,11 @@ Usage: #{opt.program_name} [options]
           @statistics.total_packet_count += 1
 
           if packet.tcp? and 0 != packet.tcp_header.flags & fin_or_rst then
-            @drb_streams.delete packet.source
-            @incomplete_drb.delete packet.source
+            source = packet.source
+
+            @drb_streams.delete source
+            @incomplete_streams.delete source
+            @incomplete_timestamps.delete source
             next
           end
 

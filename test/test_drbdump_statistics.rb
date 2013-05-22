@@ -32,17 +32,6 @@ class TestDRbDumpStatistics < DRbDump::TestCase
     assert_equal 'NaN', stat.standard_deviation.to_s
   end
 
-  def test_add_peer
-    packet = packets(ARG_DUMP).first
-
-    source      = packet.source      resolver
-    destination = packet.destination resolver
-
-    @statistics.add_peer source, destination
-
-    assert_equal 1, @statistics.peer_counts[source][destination]
-  end
-
   def test_add_result_receipt_exception
     result = @MS.new "\x04\x08\"\x09FAIL" # not an exception
 
@@ -73,6 +62,31 @@ class TestDRbDumpStatistics < DRbDump::TestCase
     assert_equal 'NaN', stat.standard_deviation.to_s
   end
 
+  def test_add_result_timestamp
+    packet = packets(ARG_DUMP).first
+
+    source      = packet.source      resolver
+    destination = packet.destination resolver
+    @statistics.add_send_timestamp destination, source, packet.timestamp
+
+    @statistics.add_result_timestamp source, destination, packet.timestamp
+
+    refute @statistics.last_peer_send[destination][source]
+    assert_equal 1, @statistics.peer_latencies[destination][source].count
+  end
+
+  def test_add_send_timestamp
+    packet = packets(ARG_DUMP).first
+
+    source      = packet.source      resolver
+    destination = packet.destination resolver
+
+    @statistics.add_send_timestamp source, destination, packet.timestamp
+
+    assert_equal packet.timestamp,
+                 @statistics.last_peer_send[source][destination]
+  end
+
   def test_show_basic
     @statistics.total_packet_count    = 5
     @statistics.rinda_packet_count    = 1
@@ -98,9 +112,9 @@ class TestDRbDumpStatistics < DRbDump::TestCase
   end
 
   def test_show_peers
-    @statistics.peer_counts['a.example.50100']['b.example.51000'] = 1
-    @statistics.peer_counts['b.example.51000']['a.example.50100'] = 2
-    @statistics.peer_counts['c.example.52000']['a.example.50100'] = 3
+    @statistics.peer_latencies['a.example.50100']['b.example.51000'] = statistic
+    @statistics.peer_latencies['b.example.51000']['a.example.50100'] = statistic
+    @statistics.peer_latencies['c.example.52000']['a.example.50100'] = statistic
 
     out, = capture_io do
       @statistics.show_peers
@@ -108,9 +122,9 @@ class TestDRbDumpStatistics < DRbDump::TestCase
 
     expected = <<-EXPECTED
 Peers:
-3 messages from c.example.52000 to a.example.50100
-2 messages from b.example.51000 to a.example.50100
-1 messages from a.example.50100 to b.example.51000
+8 messages from a.example.50100 to b.example.51000 average 5.804 s, 3.420 std. dev.
+5 messages from b.example.51000 to a.example.50100 average 6.493 s, 1.840 std. dev.
+1 messages from c.example.52000 to a.example.50100 average 5.942 s, NaN std. dev.
     EXPECTED
 
     assert_equal expected, out

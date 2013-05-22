@@ -107,6 +107,11 @@ class TestDRbDump < DRbDump::TestCase
 
     assert_equal 1, @statistics.drb_packet_count
     assert_equal 1, @statistics.drb_message_sends
+
+    source, destination = @drbdump.resolve_addresses send_msg
+
+    assert_equal send_msg.timestamp,
+                 @statistics.last_peer_send[source][destination]
   end
 
   def test_display_drb_http
@@ -148,19 +153,26 @@ class TestDRbDump < DRbDump::TestCase
 
     assert_equal expected, out
 
-    assert_empty @drbdump.incomplete_drb
+    assert_empty @drbdump.incomplete_streams
+    assert_empty @drbdump.incomplete_timestamps
 
     assert_equal 4, @statistics.drb_result_receipts
     assert_equal 2, @statistics.drb_message_sends
   end
 
   def test_display_drb_recv_msg
-    send_msg = packets(PING_DUMP).find do |packet|
+    drbdump
+
+    send_msg = packets(PING_DUMP).find do |packet| packet.payload =~ /ping/ end
+    source, destination = @drbdump.resolve_addresses send_msg
+    @statistics.add_send_timestamp source, destination, send_msg.timestamp
+
+    recv_msg = packets(PING_DUMP).find do |packet|
       packet.payload =~ /\x00\x03\x04\x08T/
     end
 
     out, = capture_io do
-      drbdump.display_drb send_msg
+      @drbdump.display_drb recv_msg
     end
 
     expected = <<-EXPECTED
@@ -171,6 +183,10 @@ class TestDRbDump < DRbDump::TestCase
 
     assert_equal 1, @statistics.drb_packet_count
     assert_equal 1, @statistics.drb_result_receipts
+
+    source, destination = @drbdump.resolve_addresses recv_msg
+
+    assert_equal 1, @statistics.peer_latencies[destination][source].count
   end
 
   def test_display_drb_recv_msg_quiet
@@ -218,7 +234,7 @@ class TestDRbDump < DRbDump::TestCase
 
     assert_equal 1, @statistics.drb_packet_count
     assert_equal 1, @statistics.drb_message_sends
-    refute_empty @statistics.peer_counts
+    refute_empty @statistics.last_peer_send
   end
 
   def test_display_drb_too_large
@@ -315,7 +331,8 @@ class TestDRbDump < DRbDump::TestCase
 
     packet = packets(FIN_DUMP).first
     @drbdump.drb_streams[packet.source] = true
-    @drbdump.incomplete_drb[packet.source] = ''
+    @drbdump.incomplete_streams[packet.source] = ''
+    @drbdump.incomplete_timestamps[packet.source] = Time.now
 
     capp = @drbdump.create_capp FIN_DUMP
 
@@ -324,7 +341,8 @@ class TestDRbDump < DRbDump::TestCase
     thread.join
 
     assert_empty @drbdump.drb_streams
-    assert_empty @drbdump.incomplete_drb
+    assert_empty @drbdump.incomplete_streams
+    assert_empty @drbdump.incomplete_timestamps
   end
 
 end

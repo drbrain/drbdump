@@ -30,9 +30,14 @@ class DRbDump::Statistics
   attr_accessor :message_sends
 
   ##
-  # Counts message sent between peers.
+  # Records the last timestamp for a message sent between peers
 
-  attr_accessor :peer_counts
+  attr_accessor :last_peer_send
+
+  ##
+  # Records statistics about latencies for messages sent between peers
+
+  attr_accessor :peer_latencies
 
   ##
   # Records statistics about result receipts.  +true+ is used for successful
@@ -64,8 +69,14 @@ class DRbDump::Statistics
       end
     end
 
-    @peer_counts = Hash.new do |counts, source|
-      counts[source] = Hash.new 0
+    @peer_latencies = Hash.new do |sources, source|
+      sources[source] = Hash.new do |destinations, destination|
+        destinations[destination] = DRbDump::Statistic.new
+      end
+    end
+
+    @last_peer_send = Hash.new do |sources, source|
+      sources[source] = Hash.new
     end
 
     @result_receipts = Hash.new do |result_receipts, success|
@@ -93,13 +104,6 @@ class DRbDump::Statistics
   end
 
   ##
-  # Adds one extra peer contact between +source+ and +destination+
-
-  def add_peer source, destination
-    @peer_counts[source][destination] += 1
-  end
-
-  ##
   # Adds a result-receipt to the counter
 
   def add_result_receipt success, result
@@ -107,6 +111,29 @@ class DRbDump::Statistics
     @drb_exceptions_raised += 1 unless success
 
     @result_receipts[success].add result.count_allocations
+  end
+
+  ##
+  # Adds a result +timestamp+ for a message between +source+ and +destination+
+
+  def add_result_timestamp source, destination, timestamp
+    sent_timestamp = @last_peer_send[destination].delete source
+
+    return unless sent_timestamp
+
+    latency = timestamp - sent_timestamp
+
+    @peer_latencies[destination][source].add latency
+
+    latency
+  end
+
+  ##
+  # Adds one extra peer contact between +source+ and +destination+ that
+  # finished sending at +timestamp+
+
+  def add_send_timestamp source, destination, timestamp
+    @last_peer_send[source][destination] = timestamp
   end
 
   ##
@@ -144,14 +171,15 @@ class DRbDump::Statistics
     destination_width = 0
     source_width      = 0
 
-    @peer_counts.each do |source, destinations|
+    @peer_latencies.each do |source, destinations|
       source_width = [source_width, source.length].max
 
-      destinations.each do |destination, count|
+      destinations.each do |destination, stat|
+        count, *stats = stat.to_a
         destination_width = [destination_width, destination.length].max
         max_count         = [max_count, count].max
 
-        rows << [count, source, destination]
+        rows << [count, source, destination, *stats]
       end
     end
 
@@ -159,10 +187,21 @@ class DRbDump::Statistics
 
     rows = rows.sort_by { |count,| -count }
 
-    output = rows.map do |count, source, destination|
-      '%2$*1$s messages from %4$*3$s to %6$*5$s' % [
+    output = rows.map do |count, source, destination, mean, std_dev|
+      unit = 's'
+
+      if mean < 1 then
+        mean    *= 1000
+        std_dev *= 1000
+        unit = 'ms'
+      end
+
+      '%2$*1$s messages from %4$*3$s to %6$*5$s ' % [
         count_width, count, source_width, source,
         destination_width, destination
+      ] +
+      'average %0.3f %s, %0.3f std. dev.' % [
+        mean, unit, std_dev
       ]
     end
 
