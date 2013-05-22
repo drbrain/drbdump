@@ -502,11 +502,9 @@ Usage: #{opt.program_name} [options]
 
     @statistics.add_message_send ref, msg, argv, block
 
-    timestamp =
-      @incomplete_timestamps.delete(packet.source) || packet.timestamp
     source, destination = resolve_addresses packet
 
-    @statistics.add_send_timestamp source, destination, timestamp
+    @statistics.add_send_timestamp source, destination, timestamp(packet)
 
     return if @quiet
 
@@ -659,6 +657,15 @@ Usage: #{opt.program_name} [options]
     end
 
     @incoming_packets.enq nil
+  end
+
+  ##
+  # Returns the timestamp for the first packet in the incomplete stream for
+  # +packet+ or the packet's timestamp if this is the only packet in the
+  # stream.
+
+  def timestamp packet # :nodoc:
+    @incomplete_timestamps.delete(packet.source) || packet.timestamp
   end
 
   ##

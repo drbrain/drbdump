@@ -356,5 +356,17 @@ class TestDRbDump < DRbDump::TestCase
     assert_empty @drbdump.drb_streams
   end
 
+  def test_timestamp
+    drbdump
+
+    first, _, last = packets(FIN_DUMP).first 3
+
+    assert_equal first.timestamp, @drbdump.timestamp(first)
+
+    @drbdump.incomplete_timestamps[first.source] = first.timestamp
+
+    assert_equal first.timestamp, @drbdump.timestamp(last)
+  end
+
 end
 
