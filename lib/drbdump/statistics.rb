@@ -136,6 +136,31 @@ class DRbDump::Statistics
     @last_peer_send[source][destination] = timestamp
   end
 
+  def extract_and_size data # :nodoc:
+    max_outer_size = 0
+    max_inner_size = 0
+    max_count      = 0
+
+    rows = []
+
+    data.each do |outer_key, inner|
+      max_outer_size = [max_outer_size, outer_key.to_s.size].max
+
+      inner.each do |inner_key, stat|
+        count, mean, std_dev = stat.to_a
+
+        rows << [outer_key, inner_key, count, mean, std_dev]
+
+        max_inner_size = [max_inner_size, inner_key.to_s.size].max
+        max_count      = [max_count, count].max
+      end
+    end
+
+    max_count_size = max_count.to_s.size
+
+    return max_outer_size, max_inner_size, max_count_size, rows
+  end
+
   def two_level_statistic_hash # :nodoc:
     Hash.new do |outer, outer_key|
       outer[outer_key] = Hash.new do |inner, inner_key|
@@ -173,29 +198,12 @@ class DRbDump::Statistics
   # Shows peer statistics
 
   def show_peers
-    rows = []
+    source_size, destination_size, count_size, rows =
+      extract_and_size @peer_latencies
 
-    max_count         = 0
-    destination_width = 0
-    source_width      = 0
+    rows = rows.sort_by { |_, _, count| -count }
 
-    @peer_latencies.each do |source, destinations|
-      source_width = [source_width, source.length].max
-
-      destinations.each do |destination, stat|
-        count, *stats = stat.to_a
-        destination_width = [destination_width, destination.length].max
-        max_count         = [max_count, count].max
-
-        rows << [count, source, destination, *stats]
-      end
-    end
-
-    count_width = max_count.to_s.length
-
-    rows = rows.sort_by { |count,| -count }
-
-    output = rows.map do |count, source, destination, mean, std_dev|
+    output = rows.map do |source, destination, count, mean, std_dev|
       unit = 's'
 
       if mean < 1 then
@@ -205,8 +213,7 @@ class DRbDump::Statistics
       end
 
       '%2$*1$s messages from %4$*3$s to %6$*5$s ' % [
-        count_width, count, source_width, source,
-        destination_width, destination
+        count_size, count, source_size, source, destination_size, destination
       ] +
       'average %0.3f %s, %0.3f std. dev.' % [
         mean, unit, std_dev
@@ -222,33 +229,13 @@ class DRbDump::Statistics
   # calls and average and standard deviation of allocations.
 
   def show_per_message
-    max_name_size = 0
-    max_argc      = 0
-    max_sends     = 0
-
-    rows = []
-
-    @message_sends.each do |message, argc_counts|
-      max_name_size = [max_name_size, message.length].max
-
-      argc_counts.each do |argc, stat|
-        count, mean, std_dev = stat.to_a
-
-        rows << [message, argc, count, mean, std_dev]
-
-        max_argc  = [max_argc, argc].max
-        max_sends = [max_sends, count].max
-      end
-    end
+    name_size, argc_size, sends_size, rows = extract_and_size @message_sends
 
     rows.sort_by { |message, argc,| [message, argc] }
 
-    sends_width = max_sends.to_s.length
-    argc_width  = max_argc.to_s.length
-
     output = rows.map do |message, argc, count, mean, std_dev|
       '%-2$*1$s (%4$*3$s args) %6$*5$d sent, ' % [
-          max_name_size, message, argc_width, argc, sends_width, count,
+          name_size, message, argc_size, argc, sends_size, count,
       ] +
       'average of %5.1f allocations, %7.3f std. dev.' % [mean, std_dev]
     end
