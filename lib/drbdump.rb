@@ -416,22 +416,10 @@ Usage: #{opt.program_name} [options]
   # Displays information from the possible DRb packet +packet+
 
   def display_drb packet
-    payload = packet.payload
-
     return unless @running
-    return if payload.empty?
+    return unless stream = packet_stream(packet)
 
     source = packet.source
-
-    if previous = @incomplete_streams.delete(source) then
-      payload = previous << payload
-    elsif /\A....\x04\x08/m !~ payload then
-      @drb_streams[source] = false
-      return
-    end
-
-    stream = StringIO.new payload
-    stream.set_encoding Encoding::BINARY, Encoding::BINARY
 
     first_chunk = @loader.load stream
 
@@ -452,7 +440,7 @@ Usage: #{opt.program_name} [options]
   rescue DRbDump::Loader::TooLarge
     display_drb_too_large packet
   rescue DRbDump::Loader::Premature, DRbDump::Loader::DataError
-    @incomplete_streams[source] = payload
+    @incomplete_streams[source] = stream.string
     @incomplete_timestamps[source] ||= packet.timestamp
   rescue DRbDump::Loader::Error
     @drb_streams[source] = false
@@ -576,6 +564,32 @@ Usage: #{opt.program_name} [options]
     object.load
   rescue NameError, ArgumentError => e
     DRb::DRbUnknown.new e, object.stream
+  end
+
+  ##
+  # Returns a StringIO created from packets that are part of the TCP
+  # connection in +stream+.
+  #
+  # Returns nil if the stream is not a DRb message stream or the packet is
+  # empty.
+
+  def packet_stream packet # :nodoc:
+    payload = packet.payload
+
+    return if payload.empty?
+
+    source = packet.source
+
+    if previous = @incomplete_streams.delete(source) then
+      payload = previous << payload
+    elsif /\A....\x04\x08/m !~ payload then
+      @drb_streams[source] = false
+      return
+    end
+
+    stream = StringIO.new payload
+    stream.set_encoding Encoding::BINARY, Encoding::BINARY
+    stream
   end
 
   ##
