@@ -366,6 +366,27 @@ Usage: #{opt.program_name} [options]
   end
 
   ##
+  # Loop that processes captured packets.
+
+  def capture_loop capp # :nodoc:
+    fin_or_rst = Capp::TCP_FIN | Capp::TCP_RST
+
+    capp.loop do |packet|
+      @statistics.total_packet_count += 1
+
+      if packet.tcp? and 0 != packet.tcp_header.flags & fin_or_rst then
+        close_stream packet.source
+
+        next
+      end
+
+      next if @drb_streams[packet.source] == false
+
+      @incoming_packets.enq packet
+    end
+  end
+
+  ##
   # Removes tracking data for the stream from +source+
 
   def close_stream source # :nodoc:
@@ -648,23 +669,9 @@ Usage: #{opt.program_name} [options]
   def start_capture capps
     @capps.concat capps
 
-    fin_or_rst = Capp::TCP_FIN | Capp::TCP_RST
-
     capps.map do |capp|
       Thread.new do
-        capp.loop do |packet|
-          @statistics.total_packet_count += 1
-
-          if packet.tcp? and 0 != packet.tcp_header.flags & fin_or_rst then
-            close_stream packet.source
-
-            next
-          end
-
-          next if @drb_streams[packet.source] == false
-
-          @incoming_packets.enq packet
-        end
+        capture_loop capp
       end
     end
   end
