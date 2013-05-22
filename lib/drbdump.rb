@@ -366,6 +366,15 @@ Usage: #{opt.program_name} [options]
   end
 
   ##
+  # Removes tracking data for the stream from +source+
+
+  def close_stream source # :nodoc:
+    @drb_streams.delete source
+    @incomplete_streams.delete source
+    @incomplete_timestamps.delete source
+  end
+
+  ##
   # Creates a new Capp instance that listens on +device+ for DRb and Rinda
   # packets
 
@@ -617,19 +626,16 @@ Usage: #{opt.program_name} [options]
   def start_capture capps
     @capps.concat capps
 
+    fin_or_rst = Capp::TCP_FIN | Capp::TCP_RST
+
     capps.map do |capp|
       Thread.new do
-        fin_or_rst = Capp::TCP_FIN | Capp::TCP_RST
-
         capp.loop do |packet|
           @statistics.total_packet_count += 1
 
           if packet.tcp? and 0 != packet.tcp_header.flags & fin_or_rst then
-            source = packet.source
+            close_stream packet.source
 
-            @drb_streams.delete source
-            @incomplete_streams.delete source
-            @incomplete_timestamps.delete source
             next
           end
 

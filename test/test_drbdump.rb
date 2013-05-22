@@ -79,6 +79,21 @@ class TestDRbDump < DRbDump::TestCase
     assert_equal 'nobody', options[:run_as_user]
   end
 
+  def test_close_stream
+    drbdump FIN_DUMP
+
+    packet = packets(FIN_DUMP).first
+    @drbdump.drb_streams[packet.source] = true
+    @drbdump.incomplete_streams[packet.source] = ''
+    @drbdump.incomplete_timestamps[packet.source] = Time.now
+
+    capp = @drbdump.close_stream packet.source
+
+    assert_empty @drbdump.drb_streams
+    assert_empty @drbdump.incomplete_streams
+    assert_empty @drbdump.incomplete_timestamps
+  end
+
   def test_create_capp
     drbdump RING_DUMP
 
@@ -331,8 +346,6 @@ class TestDRbDump < DRbDump::TestCase
 
     packet = packets(FIN_DUMP).first
     @drbdump.drb_streams[packet.source] = true
-    @drbdump.incomplete_streams[packet.source] = ''
-    @drbdump.incomplete_timestamps[packet.source] = Time.now
 
     capp = @drbdump.create_capp FIN_DUMP
 
@@ -341,8 +354,6 @@ class TestDRbDump < DRbDump::TestCase
     thread.join
 
     assert_empty @drbdump.drb_streams
-    assert_empty @drbdump.incomplete_streams
-    assert_empty @drbdump.incomplete_timestamps
   end
 
 end
