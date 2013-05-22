@@ -318,7 +318,6 @@ Usage: #{opt.program_name} [options]
 
   def initialize options
     @count            = options[:count] || Float::INFINITY
-    @devices          = options[:devices]
     @drb_config       = DRb::DRbServer.make_config
     @incoming_packets = Queue.new
     @incomplete_drb   = {}
@@ -327,6 +326,17 @@ Usage: #{opt.program_name} [options]
     @resolver         = Resolv if options[:resolve_names]
     @run_as_directory = options[:run_as_directory]
     @run_as_user      = options[:run_as_user]
+
+    initialize_devices options[:devices]
+
+    @capps       = []
+    @drb_streams = {}
+    @running     = false
+    @statistics  = DRbDump::Statistics.new
+  end
+
+  def initialize_devices devices # :nodoc:
+    @devices = devices
 
     if @devices.empty? then
       devices = Capp.devices
@@ -347,11 +357,6 @@ Usage: #{opt.program_name} [options]
     end
 
     @devices.uniq!
-
-    @capps       = []
-    @drb_streams = {}
-    @running     = false
-    @statistics  = DRbDump::Statistics.new
   end
 
   ##
