@@ -576,7 +576,7 @@ Usage: #{opt.program_name} [options]
     ref = ref.load
 
     argv.map! { |obj| load_marshal_data(obj).inspect }
-    (argv << '&block') if block.load
+    (argv << '&block') if block
     argv = argv.join ', '
 
     puts "%s %s \u21d2 (%s, %p).%s(%s)" % [
