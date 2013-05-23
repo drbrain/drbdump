@@ -1,5 +1,6 @@
 require 'minitest/autorun'
 require 'drbdump'
+require 'pp'
 require 'tempfile'
 
 # force time zone to mine
@@ -54,6 +55,15 @@ class DRbDump::TestCase < MiniTest::Unit::TestCase
     @statistics = @drbdump.statistics
 
     @drbdump
+  end
+
+  ##
+  # Pretty-print minitest diff output
+
+  def mu_pp obj # :nodoc:
+    s = ''
+    s = PP.pp obj, s
+    s.chomp
   end
 
   ##

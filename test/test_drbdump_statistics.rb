@@ -11,7 +11,7 @@ class TestDRbDumpStatistics < DRbDump::TestCase
     @random = Random.new 2
   end
 
-  def test_add_message_send
+  def test_add_message_allocation
     receiver = @MS.new "\x04\x080"
     message  = @MS.new "\x04\x08\"\x0cmessage"
     argv = [
@@ -25,7 +25,7 @@ class TestDRbDumpStatistics < DRbDump::TestCase
 
     assert_equal 1, @statistics.drb_message_sends
 
-    stat = @statistics.message_sends['message'][3]
+    stat = @statistics.message_allocations['message'][3]
 
     assert_equal  1,    stat.count
     assert_equal 10.0,  stat.mean
@@ -68,11 +68,18 @@ class TestDRbDumpStatistics < DRbDump::TestCase
     source      = packet.source      resolver
     destination = packet.destination resolver
     @statistics.add_send_timestamp destination, source, packet.timestamp
+    @statistics.add_sent_message destination, source, 'message', 3
 
     @statistics.add_result_timestamp source, destination, packet.timestamp
 
     refute @statistics.last_peer_send[destination][source]
     assert_equal 1, @statistics.peer_latencies[destination][source].count
+
+    stat = @statistics.message_latencies['message'][3]
+
+    assert_equal 1,   stat.count
+    assert_equal 0.0, stat.mean
+    assert_equal 0.0, stat.standard_deviation
   end
 
   def test_add_send_timestamp
@@ -102,6 +109,49 @@ class TestDRbDumpStatistics < DRbDump::TestCase
     assert_equal       'ms', adjusted.shift
     assert_empty adjusted
 
+  end
+
+  def test_merge_results
+    @statistics.message_allocations['one'][2]   = statistic
+    @statistics.message_allocations['one'][3]   = statistic
+    @statistics.message_allocations['three'][1] = statistic
+    @statistics.message_latencies['one'][2]     = statistic
+    @statistics.message_latencies['one'][3]     = statistic
+    @statistics.message_latencies['three'][1]   = statistic
+
+    _, _, _, allocation_rows =
+      @statistics.extract_and_size @statistics.message_allocations
+    _, _, _, latency_rows =
+      @statistics.extract_and_size @statistics.message_latencies
+
+    results = @statistics.merge_results allocation_rows, latency_rows
+
+    expecteds = [
+      ['one',   2, 9, 2.200, 5.809, 10.477, 3.199, 2.272, 4.166,  6.967, 2.476],
+      ['one',   3, 6, 3.585, 6.488,  8.198, 1.646, 2.195, 6.282, 10.933, 2.901],
+      ['three', 1, 4, 1.653, 3.696,  6.052, 2.298, 1.272, 5.401, 10.537, 2.954],
+    ]
+
+    assert_equal expecteds.size, results.size
+
+    result   = results.shift
+    expected = expecteds.shift
+
+    assert_equal expected.shift, result.shift, 'message name'
+    assert_equal expected.shift, result.shift, 'argument count'
+    assert_equal expected.shift, result.shift, 'send count'
+
+    assert_in_epsilon expected.shift, result.shift
+    assert_in_epsilon expected.shift, result.shift
+    assert_in_epsilon expected.shift, result.shift
+    assert_in_epsilon expected.shift, result.shift
+    assert_in_epsilon expected.shift, result.shift
+    assert_in_epsilon expected.shift, result.shift
+    assert_in_epsilon expected.shift, result.shift
+    assert_in_epsilon expected.shift, result.shift
+
+    assert_empty result
+    assert_empty expected
   end
 
   def test_show_basic
@@ -139,9 +189,9 @@ class TestDRbDumpStatistics < DRbDump::TestCase
 
     expected = <<-EXPECTED
 Peers min, avg, max, stddev:
-8 messages from a.example.50100 to b.example.51000 2.200, 5.804, 10.477, 3.420 s
-5 messages from b.example.51000 to a.example.50100 3.585, 6.493, 8.198, 1.840 s
-1 messages from c.example.52000 to a.example.50100 5.942, 5.942, 5.942, 0.000 s
+9 messages from a.example.50100 to b.example.51000 2.200, 5.809, 10.477, 3.199 s
+6 messages from b.example.51000 to a.example.50100 3.585, 6.488, 8.198, 1.646 s
+4 messages from c.example.52000 to a.example.50100 1.653, 3.696, 6.052, 2.298 s
     EXPECTED
 
     assert_equal expected, out
@@ -171,9 +221,12 @@ Peers min, avg, max, stddev:
   end
 
   def test_show_per_message
-    @statistics.message_sends['one'][2]   = statistic
-    @statistics.message_sends['one'][3]   = statistic
-    @statistics.message_sends['three'][1] = statistic
+    @statistics.message_allocations['one'][2]   = statistic
+    @statistics.message_allocations['one'][3]   = statistic
+    @statistics.message_allocations['three'][1] = statistic
+    @statistics.message_latencies['one'][2]     = statistic
+    @statistics.message_latencies['one'][3]     = statistic
+    @statistics.message_latencies['three'][1]   = statistic
 
     out, = capture_io do
       @statistics.show_per_message
@@ -181,9 +234,9 @@ Peers min, avg, max, stddev:
 
     expected = <<-EXPECTED
 Messages sent min, avg, max, stddev:
-one   (2 args) 8 sent, 2.2, 5.8, 10.5, 3.4 allocations
-one   (3 args) 5 sent, 3.6, 6.5, 8.2, 1.8 allocations
-three (1 args) 1 sent, 5.9, 5.9, 5.9, 0.0 allocations
+one   (2 args) 9 sent; 2.2, 5.8, 10.5, 3.2 allocations; 2.272, 4.166, 6.967, 2.476 s
+one   (3 args) 6 sent; 3.6, 6.5, 8.2, 1.6 allocations; 2.195, 6.282, 10.933, 2.901 s
+three (1 args) 4 sent; 1.7, 3.7, 6.1, 2.3 allocations; 1.272, 5.401, 10.537, 2.954 s
     EXPECTED
 
     assert_equal expected, out
@@ -199,8 +252,8 @@ three (1 args) 1 sent, 5.9, 5.9, 5.9, 0.0 allocations
 
     expected = <<-EXPECTED
 Results received min, avg, max, stddev:
-success:   8 received, 2.2, 5.8, 10.5, 3.4 allocations
-exception: 5 received, 3.6, 6.5, 8.2, 1.8 allocations
+success:   9 received; 2.2, 5.8, 10.5, 3.2 allocations
+exception: 6 received; 3.6, 6.5, 8.2, 1.6 allocations
     EXPECTED
 
     assert_equal expected, out
@@ -221,7 +274,7 @@ exception: 5 received, 3.6, 6.5, 8.2, 1.8 allocations
 
   def statistic
     s = DRbDump::Statistic.new
-    rand(20).times do
+    rand(1..20).times do
       s.add rand 1..11.0
     end
     s

@@ -24,15 +24,26 @@ class DRbDump::Statistics
   attr_accessor :drb_packet_count
 
   ##
-  # Records statistics about message sends.  The outer key is the message name
-  # while the inner key is the argument count (including block).
-
-  attr_accessor :message_sends
-
-  ##
   # Records the last timestamp for a message sent between peers
 
   attr_accessor :last_peer_send
+
+  ##
+  # Records statistics about allocations required to send a message.  The
+  # outer key is the message name while the inner key is the argument count
+  # (including block).
+
+  attr_accessor :message_allocations
+
+  ##
+  # Records statistics about latencies for sent messages.  The outer key is
+  # the message name while the inner key is the argument count (including
+  # block).
+  #
+  # The recorded latency is from the first packet in the message-send to the
+  # last packet in the message result.
+
+  attr_accessor :message_latencies
 
   ##
   # Records statistics about latencies for messages sent between peers
@@ -63,19 +74,18 @@ class DRbDump::Statistics
     @rinda_packet_count    = 0
     @total_packet_count    = 0
 
-    @message_sends = Hash.new do |message_sends, message|
-      message_sends[message] = Hash.new do |arg_counts, argc|
-        arg_counts[argc] = DRbDump::Statistic.new
-      end
-    end
-
     # [message][argc]
-    @message_sends = two_level_statistic_hash
+    @message_allocations = two_level_statistic_hash
+    @message_latencies   = two_level_statistic_hash
 
     # [source][destination]
     @peer_latencies = two_level_statistic_hash
 
     @last_peer_send = Hash.new do |sources, source|
+      sources[source] = Hash.new
+    end
+
+    @last_sent_message = Hash.new do |sources, source|
       sources[source] = Hash.new
     end
 
@@ -100,7 +110,7 @@ class DRbDump::Statistics
     argv.each { |arg| allocations += arg.count_allocations }
     allocations += block.count_allocations
 
-    @message_sends[message.load][argc].add allocations
+    @message_allocations[message.load][argc].add allocations
   end
 
   ##
@@ -118,12 +128,14 @@ class DRbDump::Statistics
 
   def add_result_timestamp source, destination, timestamp
     sent_timestamp = @last_peer_send[destination].delete source
+    message, argc = @last_sent_message[destination].delete source
 
     return unless sent_timestamp
 
     latency = timestamp - sent_timestamp
 
     @peer_latencies[destination][source].add latency
+    @message_latencies[message][argc].add latency
 
     latency
   end
@@ -134,6 +146,10 @@ class DRbDump::Statistics
 
   def add_send_timestamp source, destination, timestamp
     @last_peer_send[source][destination] = timestamp
+  end
+
+  def add_sent_message source, destination, message, argc
+    @last_sent_message[source][destination] = message, argc
   end
 
   def adjust_units stats, unit # :nodoc:
@@ -172,6 +188,21 @@ class DRbDump::Statistics
     max_count_size = max_count.to_s.size
 
     return max_outer_size, max_inner_size, max_count_size, rows
+  end
+
+  def merge_results allocation_rows, latency_rows
+    allocations = allocation_rows.group_by { |message, argc,| [message, argc] }
+    latencies   = latency_rows.group_by { |message, argc,| [message, argc] }
+
+    allocations.map do |group, (row, _)|
+      latency_row, = latencies.delete(group)
+
+      if latency_row then
+        row.concat latency_row.last 4
+      else
+        row.concat [0, 0, 0, 0]
+      end
+    end
   end
 
   def multiple_peers count_size, source_size, destination_size, rows # :nodoc:
@@ -243,15 +274,24 @@ class DRbDump::Statistics
   # calls and average and standard deviation of allocations.
 
   def show_per_message
-    name_size, argc_size, sends_size, rows = extract_and_size @message_sends
+    name_size, argc_size, sends_size, allocation_rows =
+      extract_and_size @message_allocations
 
-    rows.sort_by { |message, argc,| [message, argc] }
+    _, _, _, latency_rows = extract_and_size @message_latencies
+
+    rows = merge_results allocation_rows, latency_rows
+
+    rows = rows.sort_by { |message, argc, count,| [-count, message, argc] }
 
     output = rows.map do |message, argc, count, *stats|
-      '%-2$*1$s (%4$*3$s args) %6$*5$d sent, ' % [
+      allocation_stats = stats.first 4
+      latency_stats   = adjust_units stats.last(4), 's'
+
+      '%-2$*1$s (%4$*3$s args) %6$*5$d sent; ' % [
           name_size, message, argc_size, argc, sends_size, count,
       ] +
-      '%0.1f, %0.1f, %0.1f, %0.1f allocations' % stats
+      '%0.1f, %0.1f, %0.1f, %0.1f allocations; ' % allocation_stats +
+      '%0.3f, %0.3f, %0.3f, %0.3f %s' % latency_stats
     end
 
     puts 'Messages sent min, avg, max, stddev:'
@@ -273,12 +313,12 @@ class DRbDump::Statistics
 
     puts 'Results received min, avg, max, stddev:'
     unless success_count.zero? then
-      print 'success:   %2$*1$s received, ' % [count_width, success_count]
+      print 'success:   %2$*1$s received; ' % [count_width, success_count]
       puts '%0.1f, %0.1f, %0.1f, %0.1f allocations' % success_stats
     end
 
     unless exception_count.zero? then
-      print 'exception: %2$*1$s received, ' % [count_width, exception_count]
+      print 'exception: %2$*1$s received; ' % [count_width, exception_count]
       puts '%0.1f, %0.1f, %0.1f, %0.1f allocations' % exception_stats
     end
   end
@@ -292,10 +332,12 @@ class DRbDump::Statistics
       statistic.add value
     end
 
-    count, *rest = statistic.to_a
+    count, *stats = statistic.to_a
+
+    stats = adjust_units stats, 's'
 
     '%2$*1$d single-message peers ' % [count_size, count] +
-    '%0.3f, %0.3f, %0.3f, %0.3f s' % rest
+    '%0.3f, %0.3f, %0.3f, %0.3f %s' % stats
   end
 
 end

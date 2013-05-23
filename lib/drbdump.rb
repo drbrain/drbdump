@@ -72,8 +72,18 @@ require 'thread'
 #
 # == Statistics
 #
-# On supported operating systems you can send a SIGINFO (control-t) to display
-# current statistics for the basic counters:
+# To run drbdump in a to only display statistical information, run:
+#
+#   drbdump -n -q -c 10000
+#
+# This disables name resolution and per-message output, collects 10,000
+# messages then prints statistics at exit.  Depending on the diversity of
+# messages in your application you may need to capture a different amount of
+# packets.
+#
+# On supporting operating systems (OS X, BSD) you can send a SIGINFO
+# (control-t) to display current statistics for the basic counters at any
+# time:
 #
 #   load: 0.91  cmd: ruby 31579 running 2.48u 8.64s
 #   29664 total packets captured
@@ -85,34 +95,77 @@ require 'thread'
 #
 # These statistics are also printed when you quit drbdump.
 #
-# drbdump also displays per-message statistics at which include the number of
-# messages sent per argument count (to help distinguish between messages with
-# the same name but on different receivers) along with the average number of
-# allocations and the standard deviation of allocations required to load the
-# object:
+# At exit, per-message statistics are displayed including message name, the
+# number of argument count (to help distinguish between messages with the same
+# name and different receivers), a statistical summary of allocations required
+# to load the message's objects and a statistical summary of total latency
+# (from first packet of the message-send to last packet of the message result:
 #
-#   Messages sent:
-#   ping (2 args) 1003 sent, average of   8.405 allocations,   2.972 std. dev.
+#   Messages sent min, avg, max, stddev:
+#   call         (1 args) 12 sent; 3.0, 3.0, 3.0, 0.0 allocations;
+#                                  0.214, 1.335, 6.754, 2.008 ms
+#   each         (1 args)  6 sent; 5.0, 5.0, 5.0, 0.0 allocations;
+#                                  0.744, 1.902, 4.771, 1.918 ms
+#   []           (1 args)  3 sent; 3.0, 3.0, 3.0, 0.0 allocations;
+#                                  0.607, 1.663, 3.518, 1.612 ms
+#   []=          (2 args)  3 sent; 5.0, 5.0, 5.0, 0.0 allocations;
+#                                  0.737, 0.791, 0.839, 0.051 ms
+#   add          (1 args)  2 sent; 3.0, 3.0, 3.0, 0.0 allocations;
+#                                  0.609, 0.651, 0.694, 0.060 ms
+#   update       (1 args)  2 sent; 3.0, 3.0, 3.0, 0.0 allocations;
+#                                  0.246, 0.272, 0.298, 0.037 ms
+#   add_observer (1 args)  1 sent; 5.0, 5.0, 5.0, 0.0 allocations;
+#                                  1.689, 1.689, 1.689, 0.000 ms
+#   respond_to?  (2 args)  1 sent; 4.0, 4.0, 4.0, 0.0 allocations;
+#                                  0.597, 0.597, 0.597, 0.000 ms
 #
-#   Results received:
-#   success:   1003 received, average of   7.405 allocations,   2.972 std. dev.
-#   exception:    1 received, average of      15 allocations,     NaN std. dev.
+# (The above has been line-wrapped, display output is one line per.)
 #
 # This helps you determine which message-sends are causing more network
-# traffic.  Messages with higher numbers of allocations take longer to send
+# traffic or are less performant overall.  Some message-sends may be naturally
+# long running so a high result latency may not be indicative of a
+# poorly-performing method.
+#
+# Messages with higher numbers of allocations typically take longer to send
 # and load and create more pressure on the garbage collector.  You can change
 # locations that call these messages to use DRb::DRbObject references to help
 # reduce the size of the messages sent.
 #
 # Switching entirely to sending references may increase latency as the remote
-# end needs to continually ask the sender to invoke methods on its behalf.  To
-# help determine if changes you make are causing too many messages drbdump
-# shows the number of messages sent between peers:
+# end needs to continually ask the sender to invoke methods on its behalf.
 #
-#   Peers:
-#   30 messages from "druby://a.example:54430" to "druby://b.example:54428"
-#   10 messages from "druby://b.example:54427" to "druby://a.example:54425"
-#    5 messages from "druby://a.example:54433" to "druby://c.example:54431"
+# A summary of results is also shown:
+#
+#   Results received min, avg, max, stddev:
+#   success:   24 received; 0.0, 0.6, 2.0, 0.9 allocations
+#   exception:  2 received; 16.0, 16.0, 16.0, 0.0 allocations
+#
+# To help determine if changes you make are causing too many messages drbdump
+# shows the number of messages sent between peers along with the message
+# latency:
+#
+#   Peers min, avg, max, stddev:
+#   6 messages from "druby://a.example:54167" to "druby://a.example:54157"
+#              0.609, 1.485, 4.771, 1.621 ms
+#   4 messages from "druby://a.example:54166" to "druby://a.example:54163"
+#              1.095, 2.848, 6.754, 2.645 ms
+#   3 messages from "druby://a.example:54162" to "druby://a.example:54159"
+#              0.246, 0.380, 0.597, 0.189 ms
+#   3 messages from "druby://a.example:54169" to "druby://a.example:54163"
+#              0.214, 0.254, 0.278, 0.035 ms
+#   2 messages from "druby://a.example:54168" to "druby://a.example:54163"
+#              0.324, 0.366, 0.407, 0.059 ms
+#   2 messages from "druby://a.example:54164" to "druby://a.example:54154"
+#              0.607, 0.735, 0.863, 0.181 ms
+#   2 messages from "druby://a.example:54160" to "druby://a.example:54154"
+#              0.798, 2.158, 3.518, 1.923 ms
+#   4 single-message peers 0.225, 0.668, 1.259, 0.435 ms
+#
+# (The above has been line-wrapped, display output is one line per.)
+#
+# To save terminal lines (the peers report can be long when many messages are
+# captured) any single-peer results are wrapped up into a single line
+# aggregate.
 #
 # An efficient API between peers would send the fewest messages with the
 # fewest allocations.
@@ -508,9 +561,15 @@ Usage: #{opt.program_name} [options]
 
     @statistics.add_message_send ref, msg, argv, block
 
+    msg   = msg.load
+    argc  = argv.length
+    block = block.load
+    argc  += 1 if block
+
     source, destination = resolve_addresses packet
 
     @statistics.add_send_timestamp source, destination, timestamp(packet)
+    @statistics.add_sent_message source, destination, msg, argc
 
     return if @quiet
 
@@ -523,7 +582,7 @@ Usage: #{opt.program_name} [options]
     puts "%s %s \u21d2 (%s, %p).%s(%s)" % [
       packet.timestamp.strftime(TIMESTAMP_FORMAT),
       source, destination,
-      ref, msg.load, argv
+      ref, msg, argv
     ]
   end
 
