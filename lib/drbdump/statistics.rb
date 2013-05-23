@@ -136,6 +136,19 @@ class DRbDump::Statistics
     @last_peer_send[source][destination] = timestamp
   end
 
+  def adjust_units stats, unit # :nodoc:
+    if stats.first > 0.05 then
+      stats << unit
+      return stats
+    end
+
+    unit.replace "m#{unit}"
+
+    stats = stats.map { |stat| stat * 1000 }
+
+    stats << unit
+  end
+
   def extract_and_size data # :nodoc:
     max_outer_size = 0
     max_inner_size = 0
@@ -164,23 +177,13 @@ class DRbDump::Statistics
   def multiple_peers count_size, source_size, destination_size, rows # :nodoc:
     rows = rows.sort_by { |_, _, count| -count }
 
-    rows.map do |source, destination, count, min, mean, max, std_dev|
-      unit = 's'
-
-      if mean < 1 then
-        min     *= 1000
-        mean    *= 1000
-        max     *= 1000
-        std_dev *= 1000
-        unit = 'ms'
-      end
+    rows.map do |source, destination, count, *stats|
+      stats = adjust_units stats, 's'
 
       '%2$*1$d messages from %4$*3$s to %6$*5$s ' % [
         count_size, count, source_size, source, destination_size, destination
       ] +
-      '%0.3f, %0.3f, %0.3f, %0.3f %s' % [
-        min, mean, max, std_dev, unit
-      ]
+      '%0.3f, %0.3f, %0.3f, %0.3f %s' % stats
     end
   end
 

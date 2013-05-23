@@ -87,6 +87,23 @@ class TestDRbDumpStatistics < DRbDump::TestCase
                  @statistics.last_peer_send[source][destination]
   end
 
+  def test_adjust_units
+    adjusted = @statistics.adjust_units [0.051, 0.2], 's'
+
+    assert_in_epsilon 0.051, adjusted.shift
+    assert_in_epsilon 0.2,   adjusted.shift
+    assert_equal      's',   adjusted.shift
+    assert_empty adjusted
+
+    adjusted = @statistics.adjust_units [0.049, 0.2], 's'
+
+    assert_in_epsilon  49.0, adjusted.shift
+    assert_in_epsilon 200.0, adjusted.shift
+    assert_equal       'ms', adjusted.shift
+    assert_empty adjusted
+
+  end
+
   def test_show_basic
     @statistics.total_packet_count    = 5
     @statistics.rinda_packet_count    = 1
