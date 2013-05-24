@@ -1,29 +1,6 @@
 require 'drb'
+require 'drbdump'
 require 'optparse'
-
-module Statistics
-  refine Array do
-    def sum
-      inject :+
-    end
-
-    def average
-      sum / length.to_f
-    end
-
-    def sample_variance
-      avg = average
-      sum = inject { |sum, i| sum + (i - avg) ** 2 }
-      1 / length.to_f * sum
-    end
-
-    def σ
-      Math.sqrt sample_variance
-    end
-  end
-end
-
-using Statistics
 
 class Ping
 
@@ -145,41 +122,21 @@ Usage: ping.rb [options] [druby://...]
   end
 
   def delay_ping
-    times = []
+    statistic = DRbDump::Statistic.new
     seq = 0
 
     until (seq += 1) > @count do
-      message = 'success'
-      start = Time.now
-
-      begin
-        @remote.ping seq, @data
-      rescue DRb::DRbConnError => e
-        message = e
-      end
-
-      elapsed = (Time.now - start) * 1000
-
-      times << elapsed
-
-      puts '%s %s: seq=%d time=%0.3f ms' % [@uri, message, seq, elapsed]
-
-      reconnect
-
-      sleep @interval
+      send_message seq, statistic
     end
   ensure
     puts
-    puts delay_statistics times
+    puts delay_statistics statistic
   end
 
-  def delay_statistics times
-    min, max = times.minmax
-    avg      = times.average
-    σ        = times.σ
-
+  def delay_statistics statistic
     '%d messages, min/avg/max/stddev = %0.3f/%0.3f/%0.3f/%0.3f ms' % [
-      times.length, min, avg, max, σ
+      statistic.count, statistic.min, statistic.mean, statistic.max,
+      statistic.standard_deviation
     ]
   end
 
@@ -255,6 +212,27 @@ Usage: ping.rb [options] [druby://...]
     else
       loopback
     end
+  end
+
+  def send_message seq, statistic
+    message = 'success'
+    start = Time.now
+
+    begin
+      @remote.ping seq, @data
+    rescue DRb::DRbConnError => e
+      message = e
+    end
+
+    elapsed = (Time.now - start) * 1000
+
+    statistic.add elapsed
+
+    puts '%s %s: seq=%d time=%0.3f ms' % [@uri, message, seq, elapsed]
+
+    reconnect
+
+    sleep @interval
   end
 
 end
