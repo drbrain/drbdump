@@ -226,7 +226,7 @@ Peers min, avg, max, stddev:
     assert_equal expected, out
   end
 
-  def test_show_per_message
+  def test_show_messages
     @statistics.message_allocations['one'][2]   = statistic
     @statistics.message_allocations['one'][3]   = statistic
     @statistics.message_allocations['three'][1] = statistic
@@ -235,7 +235,7 @@ Peers min, avg, max, stddev:
     @statistics.message_latencies['three'][1]   = statistic
 
     out, = capture_io do
-      @statistics.show_per_message
+      @statistics.show_messages
     end
 
     expected = <<-EXPECTED
