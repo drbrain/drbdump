@@ -1,7 +1,7 @@
 ##
 # Wraps a DRb message-send after consuming it from a stream.
 
-class DRbDump::MessageSend
+class DRbDump::MessageSend < DRbDump::Message
 
   ##
   # The number of arguments, not including the block
@@ -30,17 +30,13 @@ class DRbDump::MessageSend
   # +stream+.
 
   def initialize drbdump, packet, receiver, stream
+    super drbdump, packet
+
     @argc         = nil
     @argv         = nil
     @block        = nil
-    @destination  = nil
-    @drbdump      = drbdump
-    @loader       = drbdump.loader
     @message      = nil
-    @packet       = packet
     @raw_receiver = receiver
-    @source       = nil
-    @statistics   = drbdump.statistics
     @stream       = stream
 
     load_message if stream
@@ -91,17 +87,6 @@ class DRbDump::MessageSend
   end
 
   ##
-  # The resolved destination for the message.
-
-  def destination
-    return @destination if @destination
-
-    resolve_addresses
-
-    @destination
-  end
-
-  ##
   # Returns the message, arguments and block for the DRb message-send in
   # +stream+.
 
@@ -124,30 +109,6 @@ class DRbDump::MessageSend
 
   def receiver
     @receiver ||= @raw_receiver.load
-  end
-
-  ##
-  # Resolves source and destination addresses
-
-  def resolve_addresses # :nodoc:
-    resolver = @drbdump.resolver
-
-    source = @packet.source resolver
-    @source = "\"druby://#{source.sub(/\.(\d+)$/, ':\1')}\""
-
-    destination = @packet.destination resolver
-    @destination = "\"druby://#{destination.sub(/\.(\d+)$/, ':\1')}\""
-  end
-
-  ##
-  # The resolved source of the message
-
-  def source
-    return @source if @source
-
-    resolve_addresses
-
-    @source
   end
 
   ##

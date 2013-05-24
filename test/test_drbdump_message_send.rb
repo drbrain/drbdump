@@ -44,10 +44,6 @@ class TestDRbDumpMessageSend < DRbDump::TestCase
     assert_nil @ms.block
   end
 
-  def test_destination
-    assert_equal '"druby://kault:57315"', @ms.destination
-  end
-
   def test_load_message
     assert_equal 'message', @ms.raw_message.load
     assert_equal 3,         @ms.argc
@@ -61,17 +57,6 @@ class TestDRbDumpMessageSend < DRbDump::TestCase
 
   def test_receiver
     assert_nil @ms.receiver
-  end
-
-  def test_resolve_addresses
-    @ms.resolve_addresses
-
-    assert_equal '"druby://kault:57317"', @ms.source
-    assert_equal '"druby://kault:57315"', @ms.destination
-  end
-
-  def test_source
-    assert_equal '"druby://kault:57317"', @ms.source
   end
 
   def test_timestamp

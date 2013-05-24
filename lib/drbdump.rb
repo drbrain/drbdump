@@ -733,6 +733,7 @@ Usage: #{opt.program_name} [options]
 end
 
 require 'drbdump/loader'
+require 'drbdump/message'
 require 'drbdump/message_send'
 require 'drbdump/message_result'
 require 'drbdump/statistic'

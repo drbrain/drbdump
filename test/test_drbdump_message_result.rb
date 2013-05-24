@@ -19,23 +19,8 @@ class TestDRbDumpMessageResult < DRbDump::TestCase
     assert_equal 2, @mr.allocations
   end
 
-  def test_destination
-    assert_equal '"druby://kault:57315"', @mr.destination
-  end
-
-  def test_resolve_addresses
-    @mr.resolve_addresses
-
-    assert_equal '"druby://kault:57317"', @mr.source
-    assert_equal '"druby://kault:57315"', @mr.destination
-  end
-
   def test_result
     assert_equal '["OK"]', @mr.result
-  end
-
-  def test_source
-    assert_equal '"druby://kault:57317"', @mr.source
   end
 
   def test_status

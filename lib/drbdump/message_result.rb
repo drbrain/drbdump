@@ -1,14 +1,18 @@
 ##
 # Wraps a DRb message-result after consuming it from a stream.
 
-class DRbDump::MessageResult
+class DRbDump::MessageResult < DRbDump::Message
+
+  ##
+  # Creates a new MessageResult for the creating +drbdump+ instance.  The last
+  # packet in the message is +packet+ and the Marshal::Structure for the
+  # result type is +status+.  The rest of the message will be loaded from
+  # +stream+.
 
   def initialize drbdump, packet, status, stream
-    @drbdump    = drbdump
-    @loader     = drbdump.loader
-    @packet     = packet
+    super drbdump, packet
+
     @result     = nil
-    @statistics = drbdump.statistics
     @status     = nil
     @stream     = stream
 
@@ -24,30 +28,6 @@ class DRbDump::MessageResult
   end
 
   ##
-  # The resolved destination for the result.
-
-  def destination
-    return @destination if @destination
-
-    resolve_addresses
-
-    @destination
-  end
-
-  ##
-  # Resolves source and destination addresses
-
-  def resolve_addresses # :nodoc:
-    resolver = @drbdump.resolver
-
-    source = @packet.source resolver
-    @source = "\"druby://#{source.sub(/\.(\d+)$/, ':\1')}\""
-
-    destination = @packet.destination resolver
-    @destination = "\"druby://#{destination.sub(/\.(\d+)$/, ':\1')}\""
-  end
-
-  ##
   # The loaded result object
 
   def result
@@ -60,17 +40,6 @@ class DRbDump::MessageResult
              else
                result.inspect
              end
-  end
-
-  ##
-  # The resolved source of the message
-
-  def source
-    return @source if @source
-
-    resolve_addresses
-
-    @source
   end
 
   ##
