@@ -4,6 +4,27 @@
 class DRbDump::Message
 
   ##
+  # Creates the appropriate message instance from the next +packet+ which was
+  # captured by +drbdump+ on the given +stream+.
+
+  def self.from_stream drbdump, packet, stream
+    loader = drbdump.loader
+
+    first_chunk = loader.load stream
+
+    case first_chunk.load
+    when nil, Integer then
+      message = DRbDump::MessageSend.new drbdump, packet, first_chunk, stream
+
+      drbdump.display_drb_send message
+    when true, false then
+      result = DRbDump::MessageResult.new drbdump, packet, first_chunk, stream
+
+      drbdump.display_drb_recv result
+    end
+  end
+
+  ##
   # Initializes a message from +packet+ captured by a +drbdump+
 
   def initialize drbdump, packet

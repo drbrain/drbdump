@@ -109,12 +109,11 @@ class DRbDump::Statistics
   # Adds information from +result+
 
   def add_result result
-    success     = result.status
     source      = result.source
     destination = result.destination
 
     @drb_results_received += 1
-    @drb_exceptions_raised += 1 unless success
+    @drb_exceptions_raised += 1 unless result.status
 
     sent_timestamp = @last_peer_send[destination].delete source
     message, argc, allocations = @last_sent_message[destination].delete source

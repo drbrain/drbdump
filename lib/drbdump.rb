@@ -494,22 +494,11 @@ Usage: #{opt.program_name} [options]
     return unless @running
     return unless stream = packet_stream(packet)
 
+    DRbDump::Message.from_stream self, packet, stream
+
+    stop if @statistics.drb_messages_sent >= @count
+
     source = packet.source
-
-    first_chunk = @loader.load stream
-
-    case first_chunk.load
-    when nil, Integer then
-      message = DRbDump::MessageSend.new self, packet, first_chunk, stream
-
-      display_drb_send message
-
-      stop if @statistics.drb_messages_sent >= count
-    when true, false then
-      result = DRbDump::MessageResult.new self, packet, first_chunk, stream
-
-      display_drb_recv result
-    end
 
     @statistics.drb_packet_count += 1
     @drb_streams[source] = true
