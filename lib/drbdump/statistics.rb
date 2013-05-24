@@ -29,6 +29,11 @@ class DRbDump::Statistics
   attr_accessor :last_peer_send
 
   ##
+  # Records the last message sent between peers
+
+  attr_accessor :last_sent_message
+
+  ##
   # Records statistics about allocations required to send a message.  The
   # outer key is the message name while the inner key is the argument count
   # (including block).
@@ -95,22 +100,20 @@ class DRbDump::Statistics
   end
 
   ##
-  # Adds a message-send to the counters
+  # Adds information from +message+
 
-  def add_message_send receiver, message, argv, block
+  def add_message_send message
     @drb_message_sends += 1
 
-    argc = argv.length
-    argc += 1 if block.load
+    msg  = message.message
+    argc = message.argument_count
 
-    allocations = 0
+    source      = message.source
+    destination = message.destination
 
-    allocations += receiver.count_allocations
-    allocations += message.count_allocations
-    argv.each { |arg| allocations += arg.count_allocations }
-    allocations += block.count_allocations
-
-    @message_allocations[message.load][argc].add allocations
+    @message_allocations[msg][argc].add message.allocations
+    @last_peer_send[source][destination] = message.timestamp
+    @last_sent_message[source][destination] = msg, argc
   end
 
   ##
@@ -138,18 +141,6 @@ class DRbDump::Statistics
     @message_latencies[message][argc].add latency
 
     latency
-  end
-
-  ##
-  # Adds one extra peer contact between +source+ and +destination+ that
-  # finished sending at +timestamp+
-
-  def add_send_timestamp source, destination, timestamp
-    @last_peer_send[source][destination] = timestamp
-  end
-
-  def add_sent_message source, destination, message, argc
-    @last_sent_message[source][destination] = message, argc
   end
 
   def adjust_units stats, unit # :nodoc:

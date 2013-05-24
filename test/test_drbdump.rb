@@ -87,7 +87,7 @@ class TestDRbDump < DRbDump::TestCase
     @drbdump.incomplete_streams[packet.source] = ''
     @drbdump.incomplete_timestamps[packet.source] = Time.now
 
-    capp = @drbdump.close_stream packet.source
+    @drbdump.close_stream packet.source
 
     assert_empty @drbdump.drb_streams
     assert_empty @drbdump.incomplete_streams
@@ -180,7 +180,7 @@ class TestDRbDump < DRbDump::TestCase
 
     send_msg = packets(PING_DUMP).find do |packet| packet.payload =~ /ping/ end
     source, destination = @drbdump.resolve_addresses send_msg
-    @statistics.add_send_timestamp source, destination, send_msg.timestamp
+    @statistics.last_peer_send[source][destination] = send_msg.timestamp
 
     recv_msg = packets(PING_DUMP).find do |packet|
       packet.payload =~ /\x00\x03\x04\x08T/
@@ -354,18 +354,6 @@ class TestDRbDump < DRbDump::TestCase
     thread.join
 
     assert_empty @drbdump.drb_streams
-  end
-
-  def test_timestamp
-    drbdump
-
-    first, _, last = packets(FIN_DUMP).first 3
-
-    assert_equal first.timestamp, @drbdump.timestamp(first)
-
-    @drbdump.incomplete_timestamps[first.source] = first.timestamp
-
-    assert_equal first.timestamp, @drbdump.timestamp(last)
   end
 
 end

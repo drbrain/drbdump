@@ -224,6 +224,11 @@ class DRbDump
   attr_reader :incomplete_timestamps # :nodoc:
 
   ##
+  # The DRb protocol loader
+
+  attr_reader :loader # :nodoc:
+
+  ##
   # A Resolv-compatible DNS resolver for looking up host names
 
   attr_accessor :resolver
@@ -499,7 +504,9 @@ Usage: #{opt.program_name} [options]
 
     case first_chunk.load
     when nil, Integer then
-      display_drb_send packet, first_chunk, stream
+      message = DRbDump::MessageSend.new self, packet, first_chunk, stream
+
+      display_drb_send message
 
       stop if @statistics.drb_message_sends >= count
     when true, false then
@@ -556,34 +563,12 @@ Usage: #{opt.program_name} [options]
   ##
   # Writes a DRb packet for a message-send to standard output.
 
-  def display_drb_send packet, ref, stream # :nodoc:
-    msg, argv, block = load_message_send stream
-
-    @statistics.add_message_send ref, msg, argv, block
-
-    msg   = msg.load
-    argc  = argv.length
-    block = block.load
-    argc  += 1 if block
-
-    source, destination = resolve_addresses packet
-
-    @statistics.add_send_timestamp source, destination, timestamp(packet)
-    @statistics.add_sent_message source, destination, msg, argc
+  def display_drb_send message # :nodoc:
+    message.update_statistics
 
     return if @quiet
 
-    ref = ref.load
-
-    argv.map! { |obj| load_marshal_data(obj).inspect }
-    (argv << '&block') if block
-    argv = argv.join ', '
-
-    puts "%s %s \u21d2 (%s, %p).%s(%s)" % [
-      packet.timestamp.strftime(TIMESTAMP_FORMAT),
-      source, destination,
-      ref, msg, argv
-    ]
+    puts "%s %s \u21d2 (%s, %p).%s(%s)" % message.to_a
   end
 
   ##
@@ -631,19 +616,6 @@ Usage: #{opt.program_name} [options]
     object.load
   rescue NameError, ArgumentError => e
     DRb::DRbUnknown.new e, object.stream
-  end
-
-  ##
-  # Returns the message, arguments and block for the DRb message-send in
-  # +stream+.
-
-  def load_message_send stream # :nodoc:
-    msg   = @loader.load stream
-    argc  = @loader.load(stream).load
-    argv  = argc.times.map do @loader.load stream end
-    block = @loader.load stream
-
-    return msg, argv, block
   end
 
   ##
@@ -740,15 +712,6 @@ Usage: #{opt.program_name} [options]
   end
 
   ##
-  # Returns the timestamp for the first packet in the incomplete stream for
-  # +packet+ or the packet's timestamp if this is the only packet in the
-  # stream.
-
-  def timestamp packet # :nodoc:
-    @incomplete_timestamps.delete(packet.source) || packet.timestamp
-  end
-
-  ##
   # Adds a SIGINFO handler if the OS supports it
 
   def trap_info
@@ -792,5 +755,6 @@ Usage: #{opt.program_name} [options]
 end
 
 require 'drbdump/loader'
+require 'drbdump/message_send'
 require 'drbdump/statistic'
 require 'drbdump/statistics'

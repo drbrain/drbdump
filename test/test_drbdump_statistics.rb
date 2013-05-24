@@ -7,21 +7,29 @@ class TestDRbDumpStatistics < DRbDump::TestCase
 
     @MS = Marshal::Structure
 
-    @statistics = DRbDump::Statistics.new
+    drbdump
+
+    @statistics = @drbdump.statistics
+    @packet = packets(ARG_DUMP).first
     @random = Random.new 2
   end
 
-  def test_add_message_allocation
+  def test_add_message_send
     receiver = @MS.new "\x04\x080"
-    message  = @MS.new "\x04\x08\"\x0cmessage"
+    msg = "\x00\x00\x00\x0b\x04\x08\"\x0cmessage"
+    argc = "\x00\x00\x00\x04\x04\x08i\x08"
     argv = [
-      @MS.new("\x04\x08[\x06\"\x06a"),
-      @MS.new("\x04\x08[\x07\"\x06a\"\x06b"),
-      @MS.new("\x04\x08[\x08\"\x06a\"\x06b\"\x06c"),
+      "\x00\x00\x00\x07\x04\x08[\x06\"\x06a",
+      "\x00\x00\x00\x0a\x04\x08[\x07\"\x06a\"\x06b",
+      "\x00\x00\x00\x0d\x04\x08[\x08\"\x06a\"\x06b\"\x06c",
     ]
-    block = @MS.new "\x04\x080"
+    block = "\x00\x00\x00\x03\x04\x080"
 
-    @statistics.add_message_send receiver, message, argv, block
+    stream = StringIO.new msg + argc + argv.join + block
+
+    message = DRbDump::MessageSend.new @drbdump, @packet, receiver, stream
+
+    @statistics.add_message_send message
 
     assert_equal 1, @statistics.drb_message_sends
 
@@ -30,6 +38,9 @@ class TestDRbDumpStatistics < DRbDump::TestCase
     assert_equal  1,    stat.count
     assert_equal 10.0,  stat.mean
     assert_equal  0.0, stat.standard_deviation
+
+    assert_equal @packet.timestamp,
+                 @statistics.last_peer_send[message.source][message.destination]
   end
 
   def test_add_result_receipt_exception
@@ -67,8 +78,8 @@ class TestDRbDumpStatistics < DRbDump::TestCase
 
     source      = packet.source      resolver
     destination = packet.destination resolver
-    @statistics.add_send_timestamp destination, source, packet.timestamp
-    @statistics.add_sent_message destination, source, 'message', 3
+    @statistics.last_peer_send[destination][source] = packet.timestamp
+    @statistics.last_sent_message[destination][source] = 'message', 3
 
     @statistics.add_result_timestamp source, destination, packet.timestamp
 
@@ -80,18 +91,6 @@ class TestDRbDumpStatistics < DRbDump::TestCase
     assert_equal 1,   stat.count
     assert_equal 0.0, stat.mean
     assert_equal 0.0, stat.standard_deviation
-  end
-
-  def test_add_send_timestamp
-    packet = packets(ARG_DUMP).first
-
-    source      = packet.source      resolver
-    destination = packet.destination resolver
-
-    @statistics.add_send_timestamp source, destination, packet.timestamp
-
-    assert_equal packet.timestamp,
-                 @statistics.last_peer_send[source][destination]
   end
 
   def test_adjust_units
@@ -269,7 +268,7 @@ exception: 6 received; 3.6, 6.5, 8.2, 1.6 allocations
   end
 
   def rand *args
-    @random.rand *args
+    @random.rand(*args)
   end
 
   def statistic

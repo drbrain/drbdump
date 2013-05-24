@@ -9,6 +9,7 @@ example/service_primes.rb
 example/tuplespace_primes.rb
 lib/drbdump.rb
 lib/drbdump/loader.rb
+lib/drbdump/message_send.rb
 lib/drbdump/statistic.rb
 lib/drbdump/statistics.rb
 lib/drbdump/test_case.rb
@@ -19,5 +20,7 @@ test/ping.dump
 test/ring.dump
 test/test_drbdump.rb
 test/test_drbdump_loader.rb
+test/test_drbdump_message_send.rb
+test/test_drbdump_statistic.rb
 test/test_drbdump_statistics.rb
 test/too_large_packet.pcap
