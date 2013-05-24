@@ -56,12 +56,6 @@ class DRbDump::Statistics
   attr_accessor :peer_latencies
 
   ##
-  # Records statistics about result receipts.  +true+ is used for successful
-  # messages while +false+ is used for exceptions.
-
-  attr_accessor :results_received
-
-  ##
   # Number of Rinda packets seen
 
   attr_accessor :rinda_packet_count
@@ -73,7 +67,7 @@ class DRbDump::Statistics
 
   def initialize # :nodoc:
     @drb_exceptions_raised = 0
-    @drb_results_received   = 0
+    @drb_results_received  = 0
     @drb_messages_sent     = 0
     @drb_packet_count      = 0
     @rinda_packet_count    = 0
@@ -93,10 +87,6 @@ class DRbDump::Statistics
     @last_sent_message = Hash.new do |sources, source|
       sources[source] = Hash.new
     end
-
-    @results_received = Hash.new do |results_received, success|
-      results_received[success] = DRbDump::Statistic.new
-    end
   end
 
   ##
@@ -111,9 +101,8 @@ class DRbDump::Statistics
     source      = message.source
     destination = message.destination
 
-    @message_allocations[msg][argc].add message.allocations
     @last_peer_send[source][destination] = message.timestamp
-    @last_sent_message[source][destination] = msg, argc
+    @last_sent_message[source][destination] = msg, argc, message.allocations
   end
 
   ##
@@ -127,10 +116,8 @@ class DRbDump::Statistics
     @drb_results_received += 1
     @drb_exceptions_raised += 1 unless success
 
-    @results_received[success].add result.allocations
-
     sent_timestamp = @last_peer_send[destination].delete source
-    message, argc = @last_sent_message[destination].delete source
+    message, argc, allocations = @last_sent_message[destination].delete source
 
     return unless sent_timestamp
 
@@ -138,6 +125,7 @@ class DRbDump::Statistics
 
     @peer_latencies[destination][source].add latency
     @message_latencies[message][argc].add latency
+    @message_allocations[message][argc].add allocations + result.allocations
   end
 
   def adjust_units stats, unit # :nodoc:
@@ -235,8 +223,6 @@ class DRbDump::Statistics
     puts
     show_per_message
     puts
-    show_per_result
-    puts
     show_peers
   end
 
@@ -290,31 +276,6 @@ class DRbDump::Statistics
 
     puts 'Messages sent min, avg, max, stddev:'
     puts output
-  end
-
-  ##
-  # Shows per-result statistics including amount of normal and exception
-  # results, average allocations per result and standard deviation of
-  # allocations.
-
-  def show_per_result
-    success_count,   *success_stats   = @results_received[true].to_a
-    exception_count, *exception_stats = @results_received[false].to_a
-
-    return if success_count.zero? and exception_count.zero?
-
-    count_width = [success_count.to_s.length, exception_count.to_s.length].max
-
-    puts 'Results received min, avg, max, stddev:'
-    unless success_count.zero? then
-      print 'success:   %2$*1$s received; ' % [count_width, success_count]
-      puts '%0.1f, %0.1f, %0.1f, %0.1f allocations' % success_stats
-    end
-
-    unless exception_count.zero? then
-      print 'exception: %2$*1$s received; ' % [count_width, exception_count]
-      puts '%0.1f, %0.1f, %0.1f, %0.1f allocations' % exception_stats
-    end
   end
 
   def single_peers count_size, rows # :nodoc:

@@ -181,6 +181,7 @@ class TestDRbDump < DRbDump::TestCase
     send_msg = packets(PING_DUMP).find do |packet| packet.payload =~ /ping/ end
     source, destination = @drbdump.resolve_addresses send_msg
     @statistics.last_peer_send[source][destination] = send_msg.timestamp
+    @statistics.last_sent_message[source][destination] = 'message', 3, 1
 
     recv_msg = packets(PING_DUMP).find do |packet|
       packet.payload =~ /\x00\x03\x04\x08T/

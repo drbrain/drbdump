@@ -33,14 +33,14 @@ class TestDRbDumpStatistics < DRbDump::TestCase
 
     assert_equal 1, @statistics.drb_messages_sent
 
-    stat = @statistics.message_allocations['message'][3]
-
-    assert_equal  1,    stat.count
-    assert_equal 10.0,  stat.mean
-    assert_equal  0.0, stat.standard_deviation
+    source      = message.source
+    destination = message.destination
 
     assert_equal @packet.timestamp,
-                 @statistics.last_peer_send[message.source][message.destination]
+                 @statistics.last_peer_send[source][destination]
+
+    assert_equal ['message', 3, 10],
+                 @statistics.last_sent_message[source][destination]
   end
 
   def test_add_result_exception
@@ -49,15 +49,21 @@ class TestDRbDumpStatistics < DRbDump::TestCase
 
     result = DRbDump::MessageResult.new @drbdump, @packet, status, value
 
+    source      = result.source
+    destination = result.destination
+
+    @statistics.last_peer_send[destination][source] = Time.at 0
+    @statistics.last_sent_message[destination][source] = 'message', 3, 1
+
     @statistics.add_result result
 
     assert_equal 1, @statistics.drb_results_received
     assert_equal 1, @statistics.drb_exceptions_raised
 
-    stat = @statistics.results_received[false]
+    stat = @statistics.message_allocations['message'][3]
 
     assert_equal 1,   stat.count
-    assert_equal 1.0, stat.mean
+    assert_equal 2.0, stat.mean
     assert_equal 0.0, stat.standard_deviation
   end
 
@@ -70,19 +76,18 @@ class TestDRbDumpStatistics < DRbDump::TestCase
     source      = result.source
     destination = result.destination
 
-    @statistics.message_allocations['message'][3].add 1
     @statistics.last_peer_send[destination][source] = Time.at 0
-    @statistics.last_sent_message[destination][source] = 'message', 3
+    @statistics.last_sent_message[destination][source] = 'message', 3, 1
 
     @statistics.add_result result
 
     assert_equal 1, @statistics.drb_results_received
     assert_equal 0, @statistics.drb_exceptions_raised
 
-    stat = @statistics.results_received[true]
+    stat = @statistics.message_allocations['message'][3]
 
     assert_equal 1,   stat.count
-    assert_equal 2.0, stat.mean
+    assert_equal 3.0, stat.mean
     assert_equal 0.0, stat.standard_deviation
 
     refute @statistics.last_peer_send[destination][source]
@@ -241,32 +246,6 @@ three (1 args) 4 sent; 1.7, 3.7, 6.1, 2.3 allocations; 1.272, 5.401, 10.537, 2.9
     EXPECTED
 
     assert_equal expected, out
-  end
-
-  def test_show_per_result
-    @statistics.results_received[true]  = statistic
-    @statistics.results_received[false] = statistic
-
-    out, = capture_io do
-      @statistics.show_per_result
-    end
-
-    expected = <<-EXPECTED
-Results received min, avg, max, stddev:
-success:   9 received; 2.2, 5.8, 10.5, 3.2 allocations
-exception: 6 received; 3.6, 6.5, 8.2, 1.6 allocations
-    EXPECTED
-
-    assert_equal expected, out
-  end
-
-  def test_show_per_result_no_messages
-    @statistics.results_received[true]  = DRbDump::Statistic.new
-    @statistics.results_received[false] = DRbDump::Statistic.new
-
-    assert_silent do
-      @statistics.show_per_result
-    end
   end
 
   def rand *args
