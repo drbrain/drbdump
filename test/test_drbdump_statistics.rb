@@ -195,9 +195,9 @@ class TestDRbDumpStatistics < DRbDump::TestCase
 
     expected = <<-EXPECTED
 Peers min, avg, max, stddev:
-9 messages from a.example.50100 to b.example.51000 2.200, 5.809, 10.477, 3.199 s
-6 messages from b.example.51000 to a.example.50100 3.585, 6.488, 8.198, 1.646 s
-4 messages from c.example.52000 to a.example.50100 1.653, 3.696, 6.052, 2.298 s
+9 messages: a.example.50100 to b.example.51000; 2.200, 5.809, 10.477, 3.199 s
+6 messages: b.example.51000 to a.example.50100; 3.585, 6.488, 8.198, 1.646 s
+4 messages: c.example.52000 to a.example.50100; 1.653, 3.696, 6.052, 2.298 s
     EXPECTED
 
     assert_equal expected, out

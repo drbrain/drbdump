@@ -187,7 +187,7 @@ class DRbDump::Statistics
     rows.map do |source, destination, count, *stats|
       stats = adjust_units stats, 's'
 
-      '%2$*1$d messages from %4$*3$s to %6$*5$s ' % [
+      '%2$*1$d messages: %4$*3$s to %6$*5$s; ' % [
         count_size, count, source_size, source, destination_size, destination
       ] +
       '%0.3f, %0.3f, %0.3f, %0.3f %s' % stats
