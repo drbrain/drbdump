@@ -98,8 +98,9 @@ require 'thread'
 # At exit, per-message statistics are displayed including message name, the
 # number of argument count (to help distinguish between messages with the same
 # name and different receivers), a statistical summary of allocations required
-# to load the message's objects and a statistical summary of total latency
-# (from first packet of the message-send to last packet of the message result:
+# to load the message send and result objects and a statistical summary of
+# total latency (from first packet of the message-send to last packet of the
+# message result:
 #
 #   Messages sent min, avg, max, stddev:
 #   call         (1 args) 12 sent; 3.0, 3.0, 3.0, 0.0 allocations;
@@ -134,12 +135,6 @@ require 'thread'
 # Switching entirely to sending references may increase latency as the remote
 # end needs to continually ask the sender to invoke methods on its behalf.
 #
-# A summary of results is also shown:
-#
-#   Results received min, avg, max, stddev:
-#   success:   24 received; 0.0, 0.6, 2.0, 0.9 allocations
-#   exception:  2 received; 16.0, 16.0, 16.0, 0.0 allocations
-#
 # To help determine if changes you make are causing too many messages drbdump
 # shows the number of messages sent between peers along with the message
 # latency:
@@ -164,7 +159,7 @@ require 'thread'
 # (The above has been line-wrapped, display output is one line per.)
 #
 # To save terminal lines (the peers report can be long when many messages are
-# captured) any single-peer results are wrapped up into a single line
+# captured) any single-peer results are wrapped up into a one-line
 # aggregate.
 #
 # An efficient API between peers would send the fewest messages with the
