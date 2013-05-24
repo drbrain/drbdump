@@ -11,12 +11,12 @@ class DRbDump::Statistics
   ##
   # Number of DRb results received
 
-  attr_accessor :drb_result_receipts
+  attr_accessor :drb_results_received
 
   ##
   # Number of DRb messages sent
 
-  attr_accessor :drb_message_sends
+  attr_accessor :drb_messages_sent
 
   ##
   # Number of DRb packets seen
@@ -59,7 +59,7 @@ class DRbDump::Statistics
   # Records statistics about result receipts.  +true+ is used for successful
   # messages while +false+ is used for exceptions.
 
-  attr_accessor :result_receipts
+  attr_accessor :results_received
 
   ##
   # Number of Rinda packets seen
@@ -73,8 +73,8 @@ class DRbDump::Statistics
 
   def initialize # :nodoc:
     @drb_exceptions_raised = 0
-    @drb_result_receipts   = 0
-    @drb_message_sends     = 0
+    @drb_results_received   = 0
+    @drb_messages_sent     = 0
     @drb_packet_count      = 0
     @rinda_packet_count    = 0
     @total_packet_count    = 0
@@ -94,8 +94,8 @@ class DRbDump::Statistics
       sources[source] = Hash.new
     end
 
-    @result_receipts = Hash.new do |result_receipts, success|
-      result_receipts[success] = DRbDump::Statistic.new
+    @results_received = Hash.new do |results_received, success|
+      results_received[success] = DRbDump::Statistic.new
     end
   end
 
@@ -103,7 +103,7 @@ class DRbDump::Statistics
   # Adds information from +message+
 
   def add_message_send message
-    @drb_message_sends += 1
+    @drb_messages_sent += 1
 
     msg  = message.message
     argc = message.argument_count
@@ -117,30 +117,27 @@ class DRbDump::Statistics
   end
 
   ##
-  # Adds a result-receipt to the counter
+  # Adds information from +result+
 
-  def add_result_receipt success, result
-    @drb_result_receipts += 1
+  def add_result result
+    success     = result.status
+    source      = result.source
+    destination = result.destination
+
+    @drb_results_received += 1
     @drb_exceptions_raised += 1 unless success
 
-    @result_receipts[success].add result.count_allocations
-  end
+    @results_received[success].add result.allocations
 
-  ##
-  # Adds a result +timestamp+ for a message between +source+ and +destination+
-
-  def add_result_timestamp source, destination, timestamp
     sent_timestamp = @last_peer_send[destination].delete source
     message, argc = @last_sent_message[destination].delete source
 
     return unless sent_timestamp
 
-    latency = timestamp - sent_timestamp
+    latency = result.timestamp - sent_timestamp
 
     @peer_latencies[destination][source].add latency
     @message_latencies[message][argc].add latency
-
-    latency
   end
 
   def adjust_units stats, unit # :nodoc:
@@ -250,8 +247,8 @@ class DRbDump::Statistics
     puts "#{@total_packet_count} total packets captured"
     puts "#{@rinda_packet_count} Rinda packets captured"
     puts "#{@drb_packet_count} DRb packets captured"
-    puts "#{@drb_message_sends} messages sent"
-    puts "#{@drb_result_receipts} results received"
+    puts "#{@drb_messages_sent} messages sent"
+    puts "#{@drb_results_received} results received"
     puts "#{@drb_exceptions_raised} exceptions raised"
   end
 
@@ -301,8 +298,8 @@ class DRbDump::Statistics
   # allocations.
 
   def show_per_result
-    success_count,   *success_stats   = @result_receipts[true].to_a
-    exception_count, *exception_stats = @result_receipts[false].to_a
+    success_count,   *success_stats   = @results_received[true].to_a
+    exception_count, *exception_stats = @results_received[false].to_a
 
     return if success_count.zero? and exception_count.zero?
 

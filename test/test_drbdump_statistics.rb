@@ -31,7 +31,7 @@ class TestDRbDumpStatistics < DRbDump::TestCase
 
     @statistics.add_message_send message
 
-    assert_equal 1, @statistics.drb_message_sends
+    assert_equal 1, @statistics.drb_messages_sent
 
     stat = @statistics.message_allocations['message'][3]
 
@@ -43,54 +43,56 @@ class TestDRbDumpStatistics < DRbDump::TestCase
                  @statistics.last_peer_send[message.source][message.destination]
   end
 
-  def test_add_result_receipt_exception
-    result = @MS.new "\x04\x08\"\x09FAIL" # not an exception
+  def test_add_result_exception
+    status = @MS.new "\x04\x08F"
+    value  = StringIO.new "\x00\x00\x00\x08\x04\x08\"\x09FAIL" # fake exception
 
-    @statistics.add_result_receipt false, result
+    result = DRbDump::MessageResult.new @drbdump, @packet, status, value
 
-    assert_equal 1, @statistics.drb_result_receipts
+    @statistics.add_result result
+
+    assert_equal 1, @statistics.drb_results_received
     assert_equal 1, @statistics.drb_exceptions_raised
 
-    stat = @statistics.result_receipts[false]
+    stat = @statistics.results_received[false]
 
     assert_equal 1,   stat.count
     assert_equal 1.0, stat.mean
     assert_equal 0.0, stat.standard_deviation
   end
 
-  def test_add_result_receipt_success
-    result = @MS.new "\x04\x08\[\x06\"\x07OK"
+  def test_add_result_success
+    status = @MS.new "\x04\x08T"
+    value  = StringIO.new "\x00\x00\x00\x08\x04\x08\[\x06\"\x07OK"
 
-    @statistics.add_result_receipt true, result
+    result = DRbDump::MessageResult.new @drbdump, @packet, status, value
 
-    assert_equal 1, @statistics.drb_result_receipts
+    source      = result.source
+    destination = result.destination
+
+    @statistics.message_allocations['message'][3].add 1
+    @statistics.last_peer_send[destination][source] = Time.at 0
+    @statistics.last_sent_message[destination][source] = 'message', 3
+
+    @statistics.add_result result
+
+    assert_equal 1, @statistics.drb_results_received
     assert_equal 0, @statistics.drb_exceptions_raised
 
-    stat = @statistics.result_receipts[true]
+    stat = @statistics.results_received[true]
 
     assert_equal 1,   stat.count
     assert_equal 2.0, stat.mean
     assert_equal 0.0, stat.standard_deviation
-  end
-
-  def test_add_result_timestamp
-    packet = packets(ARG_DUMP).first
-
-    source      = packet.source      resolver
-    destination = packet.destination resolver
-    @statistics.last_peer_send[destination][source] = packet.timestamp
-    @statistics.last_sent_message[destination][source] = 'message', 3
-
-    @statistics.add_result_timestamp source, destination, packet.timestamp
 
     refute @statistics.last_peer_send[destination][source]
     assert_equal 1, @statistics.peer_latencies[destination][source].count
 
     stat = @statistics.message_latencies['message'][3]
 
-    assert_equal 1,   stat.count
-    assert_equal 0.0, stat.mean
-    assert_equal 0.0, stat.standard_deviation
+    assert_equal      1,            stat.count
+    assert_in_epsilon 1364885180.0, stat.mean
+    assert_equal      0.0,          stat.standard_deviation
   end
 
   def test_adjust_units
@@ -157,8 +159,8 @@ class TestDRbDumpStatistics < DRbDump::TestCase
     @statistics.total_packet_count    = 5
     @statistics.rinda_packet_count    = 1
     @statistics.drb_packet_count      = 3
-    @statistics.drb_message_sends     = 1
-    @statistics.drb_result_receipts   = 2
+    @statistics.drb_messages_sent     = 1
+    @statistics.drb_results_received  = 2
     @statistics.drb_exceptions_raised = 1
 
     out, = capture_io do
@@ -242,8 +244,8 @@ three (1 args) 4 sent; 1.7, 3.7, 6.1, 2.3 allocations; 1.272, 5.401, 10.537, 2.9
   end
 
   def test_show_per_result
-    @statistics.result_receipts[true]  = statistic
-    @statistics.result_receipts[false] = statistic
+    @statistics.results_received[true]  = statistic
+    @statistics.results_received[false] = statistic
 
     out, = capture_io do
       @statistics.show_per_result
@@ -259,8 +261,8 @@ exception: 6 received; 3.6, 6.5, 8.2, 1.6 allocations
   end
 
   def test_show_per_result_no_messages
-    @statistics.result_receipts[true]  = DRbDump::Statistic.new
-    @statistics.result_receipts[false] = DRbDump::Statistic.new
+    @statistics.results_received[true]  = DRbDump::Statistic.new
+    @statistics.results_received[false] = DRbDump::Statistic.new
 
     assert_silent do
       @statistics.show_per_result

@@ -508,11 +508,11 @@ Usage: #{opt.program_name} [options]
 
       display_drb_send message
 
-      stop if @statistics.drb_message_sends >= count
+      stop if @statistics.drb_messages_sent >= count
     when true, false then
-      display_drb_recv packet, first_chunk, stream
-    else
-      return # ignore
+      result = DRbDump::MessageResult.new self, packet, first_chunk, stream
+
+      display_drb_recv result
     end
 
     @statistics.drb_packet_count += 1
@@ -530,34 +530,12 @@ Usage: #{opt.program_name} [options]
   ##
   # Writes a DRb packet for a message recv to standard output.
 
-  def display_drb_recv packet, success, stream
-    success = success.load
-    result  = @loader.load stream
-
-    @statistics.add_result_receipt success, result
-
-    source, destination = resolve_addresses packet
-
-    @statistics.add_result_timestamp source, destination, packet.timestamp
+  def display_drb_recv result
+    result.update_statistics
 
     return if @quiet
 
-    result = load_marshal_data result
-
-    result = if DRb::DRbObject === result then
-               "(\"druby://#{result.__drburi}\", #{result.__drbref})"
-             else
-               result.inspect
-             end
-
-    message = success ? 'success' : 'exception'
-    arrow   = success ? "\u21d0"  : "\u2902"
-
-    puts "%s %s %s %s %s: %s" % [
-      packet.timestamp.strftime(TIMESTAMP_FORMAT),
-      destination, arrow, source,
-      message, result
-    ]
+    puts "%s %s %s %s %s: %s" % result.to_a
   end
 
   ##
@@ -756,5 +734,6 @@ end
 
 require 'drbdump/loader'
 require 'drbdump/message_send'
+require 'drbdump/message_result'
 require 'drbdump/statistic'
 require 'drbdump/statistics'

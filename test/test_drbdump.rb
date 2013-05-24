@@ -121,7 +121,7 @@ class TestDRbDump < DRbDump::TestCase
     end
 
     assert_equal 1, @statistics.drb_packet_count
-    assert_equal 1, @statistics.drb_message_sends
+    assert_equal 1, @statistics.drb_messages_sent
 
     source, destination = @drbdump.resolve_addresses send_msg
 
@@ -171,8 +171,8 @@ class TestDRbDump < DRbDump::TestCase
     assert_empty @drbdump.incomplete_streams
     assert_empty @drbdump.incomplete_timestamps
 
-    assert_equal 4, @statistics.drb_result_receipts
-    assert_equal 2, @statistics.drb_message_sends
+    assert_equal 4, @statistics.drb_results_received
+    assert_equal 2, @statistics.drb_messages_sent
   end
 
   def test_display_drb_recv_msg
@@ -197,7 +197,7 @@ class TestDRbDump < DRbDump::TestCase
     assert_equal expected, out
 
     assert_equal 1, @statistics.drb_packet_count
-    assert_equal 1, @statistics.drb_result_receipts
+    assert_equal 1, @statistics.drb_results_received
 
     source, destination = @drbdump.resolve_addresses recv_msg
 
@@ -217,7 +217,7 @@ class TestDRbDump < DRbDump::TestCase
     end
 
     assert_equal 1, @statistics.drb_packet_count
-    assert_equal 1, @statistics.drb_result_receipts
+    assert_equal 1, @statistics.drb_results_received
   end
 
   def test_display_drb_send_msg
@@ -234,7 +234,7 @@ class TestDRbDump < DRbDump::TestCase
     assert_equal expected, out
 
     assert_equal 1, @statistics.drb_packet_count
-    assert_equal 1, @statistics.drb_message_sends
+    assert_equal 1, @statistics.drb_messages_sent
   end
 
   def test_display_drb_send_msg_quiet
@@ -248,7 +248,7 @@ class TestDRbDump < DRbDump::TestCase
     end
 
     assert_equal 1, @statistics.drb_packet_count
-    assert_equal 1, @statistics.drb_message_sends
+    assert_equal 1, @statistics.drb_messages_sent
     refute_empty @statistics.last_peer_send
   end
 

@@ -102,7 +102,7 @@ class TestDRbDumpMessageSend < DRbDump::TestCase
   def test_update_statistics
     @ms.update_statistics
 
-    assert_equal 1, @statistics.drb_message_sends
+    assert_equal 1, @statistics.drb_messages_sent
   end
 
 end

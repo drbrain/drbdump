@@ -127,7 +127,7 @@ class DRbDump::MessageSend
   end
 
   ##
-  # Resolves source and destination addresses in +packet+ for use in DRb URIs
+  # Resolves source and destination addresses
 
   def resolve_addresses # :nodoc:
     resolver = @drbdump.resolver
