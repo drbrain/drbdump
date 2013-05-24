@@ -28,6 +28,23 @@ class DRbDump::MessageResult < DRbDump::Message
   end
 
   ##
+  # Prints the message information to standard output
+
+  def display
+    update_statistics
+
+    return if @drbdump.quiet
+
+    message   = status ? 'success' : 'exception'
+    arrow     = status ? "\u21d0"  : "\u2902"
+    timestamp = @packet.timestamp.strftime DRbDump::TIMESTAMP_FORMAT
+
+    puts "%s %s %s %s %s: %s" % [
+      timestamp, destination, arrow, source, message, result
+    ]
+  end
+
+  ##
   # The loaded result object
 
   def result
@@ -54,17 +71,6 @@ class DRbDump::MessageResult < DRbDump::Message
 
   def timestamp
     @packet.timestamp
-  end
-
-  ##
-  # The message as an Array usable by sprintf
-
-  def to_a
-    message   = status ? 'success' : 'exception'
-    arrow     = status ? "\u21d0"  : "\u2902"
-    timestamp = @packet.timestamp.strftime DRbDump::TIMESTAMP_FORMAT
-
-    [timestamp, destination, arrow, source, message, result]
   end
 
   ##

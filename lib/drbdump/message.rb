@@ -14,13 +14,9 @@ class DRbDump::Message
 
     case first_chunk.load
     when nil, Integer then
-      message = DRbDump::MessageSend.new drbdump, packet, first_chunk, stream
-
-      drbdump.display_drb_send message
+      DRbDump::MessageSend.new drbdump, packet, first_chunk, stream
     when true, false then
-      result = DRbDump::MessageResult.new drbdump, packet, first_chunk, stream
-
-      drbdump.display_drb_recv result
+      DRbDump::MessageResult.new drbdump, packet, first_chunk, stream
     end
   end
 

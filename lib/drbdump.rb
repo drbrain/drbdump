@@ -494,11 +494,13 @@ Usage: #{opt.program_name} [options]
     return unless @running
     return unless stream = packet_stream(packet)
 
-    DRbDump::Message.from_stream self, packet, stream
+    source = packet.source
+
+    message = DRbDump::Message.from_stream self, packet, stream
+
+    message.display
 
     stop if @statistics.drb_messages_sent >= @count
-
-    source = packet.source
 
     @statistics.drb_packet_count += 1
     @drb_streams[source] = true
@@ -510,28 +512,6 @@ Usage: #{opt.program_name} [options]
     @incomplete_timestamps[source] ||= packet.timestamp
   rescue DRbDump::Loader::Error
     @drb_streams[source] = false
-  end
-
-  ##
-  # Writes a DRb packet for a message recv to standard output.
-
-  def display_drb_recv result
-    result.update_statistics
-
-    return if @quiet
-
-    puts "%s %s %s %s %s: %s" % result.to_a
-  end
-
-  ##
-  # Writes a DRb packet for a message-send to standard output.
-
-  def display_drb_send message # :nodoc:
-    message.update_statistics
-
-    return if @quiet
-
-    puts "%s %s \u21d2 (%s, %p).%s(%s)" % message.to_a
   end
 
   ##

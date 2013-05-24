@@ -87,6 +87,21 @@ class DRbDump::MessageSend < DRbDump::Message
   end
 
   ##
+  # Prints the message information to standard output
+
+  def display
+    update_statistics
+
+    return if @drbdump.quiet
+
+    timestamp = @packet.timestamp.strftime DRbDump::TIMESTAMP_FORMAT
+
+    puts "%s %s \u21d2 (%s, %p).%s(%s)" % [
+      timestamp, source, destination, receiver, message, arguments
+    ]
+  end
+
+  ##
   # Returns the message, arguments and block for the DRb message-send in
   # +stream+.
 
@@ -118,15 +133,6 @@ class DRbDump::MessageSend < DRbDump::Message
 
   def timestamp
     @drbdump.incomplete_timestamps.delete(@packet.source) || @packet.timestamp
-  end
-
-  ##
-  # The message as an Array usable by sprintf
-
-  def to_a
-    timestamp = @packet.timestamp.strftime DRbDump::TIMESTAMP_FORMAT
-
-    [timestamp, source, destination, receiver, message, arguments]
   end
 
   ##

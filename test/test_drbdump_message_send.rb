@@ -44,6 +44,30 @@ class TestDRbDumpMessageSend < DRbDump::TestCase
     assert_nil @ms.block
   end
 
+  def test_display
+    out, = capture_io do
+      @ms.display
+    end
+
+    expected = <<-EXPECTED
+23:46:20.561298 "druby://kault:57317" \u21d2 ("druby://kault:57315", nil).message("a", "b", "c")
+    EXPECTED
+
+    assert_equal expected, out
+
+    assert_equal 1, @statistics.drb_messages_sent
+  end
+
+  def test_display_quiet
+    @drbdump.quiet = true
+
+    assert_silent do
+      @ms.display
+    end
+
+    assert_equal 1, @statistics.drb_messages_sent
+  end
+
   def test_load_message
     assert_equal 'message', @ms.raw_message.load
     assert_equal 3,         @ms.argc
@@ -69,19 +93,6 @@ class TestDRbDumpMessageSend < DRbDump::TestCase
     @drbdump.incomplete_timestamps[first.source] = first.timestamp
 
     assert_equal first.timestamp, ms.timestamp
-  end
-
-  def test_to_a
-    expected = [
-      '23:46:20.561298',
-      '"druby://kault:57317"',
-      '"druby://kault:57315"',
-      nil,
-      'message',
-      '"a", "b", "c"',
-    ]
-
-    assert_equal expected, @ms.to_a
   end
 
   def test_update_statistics

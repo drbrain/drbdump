@@ -19,6 +19,30 @@ class TestDRbDumpMessageResult < DRbDump::TestCase
     assert_equal 2, @mr.allocations
   end
 
+  def test_display
+    out, = capture_io do
+      @mr.display
+    end
+
+    expected = <<-EXPECTED
+23:46:20.561298 "druby://kault:57315" \u21d0 "druby://kault:57317" success: ["OK"]
+    EXPECTED
+
+    assert_equal expected, out
+
+    assert_equal 1, @statistics.drb_results_received
+  end
+
+  def test_display_quiet
+    @drbdump.quiet = true
+
+    assert_silent do
+      @mr.display
+    end
+
+    assert_equal 1, @statistics.drb_results_received
+  end
+
   def test_result
     assert_equal '["OK"]', @mr.result
   end
@@ -37,19 +61,6 @@ class TestDRbDumpMessageResult < DRbDump::TestCase
     @drbdump.incomplete_timestamps[first.source] = first.timestamp
 
     assert_equal first.timestamp, ms.timestamp
-  end
-
-  def test_to_a
-    expected = [
-      '23:46:20.561298',
-      '"druby://kault:57315"',
-      "\u21d0",
-      '"druby://kault:57317"',
-      'success',
-      '["OK"]',
-    ]
-
-    assert_equal expected, @mr.to_a
   end
 
   def test_update_statistics
