@@ -124,7 +124,8 @@ require 'thread'
 #
 # This helps you determine which message-sends are causing more network
 # traffic or are less performant overall.  Some message-sends may be naturally
-# long running so a high result latency may not be indicative of a
+# long running (such as an enumerator that performs many message-sends to
+# invoke its block) so a high result latency may not be indicative of a
 # poorly-performing method.
 #
 # Messages with higher numbers of allocations typically take longer to send
