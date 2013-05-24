@@ -209,6 +209,19 @@ class DRbDump::Statistics
     end
   end
 
+  def per_message_results
+    name_size, argc_size, sends_size, allocation_rows =
+      extract_and_size @message_allocations
+
+    _, _, _, latency_rows = extract_and_size @message_latencies
+
+    rows = merge_results allocation_rows, latency_rows
+
+    rows.sort_by { |message, argc, count,| [-count, message, argc] }
+
+    return name_size, argc_size, sends_size, rows
+  end
+
   def two_level_statistic_hash # :nodoc:
     Hash.new do |outer, outer_key|
       outer[outer_key] = Hash.new do |inner, inner_key|
@@ -264,15 +277,8 @@ class DRbDump::Statistics
   # Shows per-message-send statistics including arguments per calls, count of
   # calls and average and standard deviation of allocations.
 
-  def show_per_message
-    name_size, argc_size, sends_size, allocation_rows =
-      extract_and_size @message_allocations
-
-    _, _, _, latency_rows = extract_and_size @message_latencies
-
-    rows = merge_results allocation_rows, latency_rows
-
-    rows = rows.sort_by { |message, argc, count,| [-count, message, argc] }
+  def show_per_message # :nodoc:
+    name_size, argc_size, sends_size, rows = per_message_results
 
     output = rows.map do |message, argc, count, *stats|
       allocation_stats = stats.first 4
