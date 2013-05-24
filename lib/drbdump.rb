@@ -192,6 +192,8 @@ class DRbDump
 
   VERSION = '1.0'
 
+  FIN_OR_RST = Capp::TCP_FIN | Capp::TCP_RST # :nodoc:
+
   TIMESTAMP_FORMAT = '%H:%M:%S.%6N' # :nodoc:
 
   ##
@@ -423,20 +425,8 @@ Usage: #{opt.program_name} [options]
   # Loop that processes captured packets.
 
   def capture_loop capp # :nodoc:
-    fin_or_rst = Capp::TCP_FIN | Capp::TCP_RST
-
     capp.loop do |packet|
-      @statistics.total_packet_count += 1
-
-      if packet.tcp? and 0 != packet.tcp_header.flags & fin_or_rst then
-        close_stream packet.source
-
-        next
-      end
-
-      next if @drb_streams[packet.source] == false
-
-      @incoming_packets.enq packet
+      enqueue_packet packet
     end
   end
 
@@ -549,6 +539,24 @@ Usage: #{opt.program_name} [options]
         end
       end
     end
+  end
+
+  ##
+  # Enqueues +packet+ unless it is a FIN or RST or the stream is not a DRb
+  # stream.
+
+  def enqueue_packet packet # :nodoc:
+    @statistics.total_packet_count += 1
+
+    if packet.tcp? and 0 != packet.tcp_header.flags & FIN_OR_RST then
+      close_stream packet.source
+
+      return
+    end
+
+    return if @drb_streams[packet.source] == false
+
+    @incoming_packets.enq packet
   end
 
   ##
