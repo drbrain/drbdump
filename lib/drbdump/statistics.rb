@@ -202,7 +202,7 @@ class DRbDump::Statistics
 
     rows = merge_results allocation_rows, latency_rows
 
-    rows.sort_by { |message, argc, count,| [-count, message, argc] }
+    rows = rows.sort_by { |message, argc, count,| [-count, message, argc] }
 
     return name_size, argc_size, sends_size, rows
   end
@@ -221,7 +221,7 @@ class DRbDump::Statistics
   def show
     show_basic
     puts
-    show_per_message
+    show_messages
     puts
     show_peers
   end
@@ -257,10 +257,10 @@ class DRbDump::Statistics
   end
 
   ##
-  # Shows per-message-send statistics including arguments per calls, count of
+  # Shows message-send statistics including arguments per calls, count of
   # calls and average and standard deviation of allocations.
 
-  def show_per_message # :nodoc:
+  def show_messages # :nodoc:
     name_size, argc_size, sends_size, rows = per_message_results
 
     output = rows.map do |message, argc, count, *stats|
