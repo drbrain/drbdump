@@ -94,7 +94,7 @@ class DRbDump::MessageSend < DRbDump::Message
 
     return if @drbdump.quiet
 
-    timestamp = @packet.timestamp.strftime DRbDump::TIMESTAMP_FORMAT
+    timestamp = self.timestamp.strftime DRbDump::TIMESTAMP_FORMAT
 
     puts "%s %s \u21d2 (%s, %p).%s(%s)" % [
       timestamp, source, destination, receiver, message, arguments

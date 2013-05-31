@@ -37,7 +37,7 @@ class DRbDump::MessageResult < DRbDump::Message
 
     message   = status ? 'success' : 'exception'
     arrow     = status ? "\u21d0"  : "\u2902"
-    timestamp = @packet.timestamp.strftime DRbDump::TIMESTAMP_FORMAT
+    timestamp = self.timestamp.strftime DRbDump::TIMESTAMP_FORMAT
 
     puts "%s %s %s %s %s: %s" % [
       timestamp, destination, arrow, source, message, result
