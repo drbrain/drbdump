@@ -1,5 +1,4 @@
-=== 1.0 / 2013-03-19
+=== 1.0 / 2013-05-31
 
-* Major enhancements
-  * Birthday!
+* Birthday!
 
