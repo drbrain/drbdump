@@ -8,36 +8,36 @@ require 'stringio'
 require 'thread'
 
 ##
-# tcpdump for DRb
+# drbdump is a tcpdump-like tool for the dRuby protocol.
 #
 # == Usage
 #
-# The +drbdump+ command-line utility works similarly to tcpdump.  Here's the
+# The +drbdump+ command-line utility works similarly to tcpdump.  This is the
 # easiest way to get started:
 #
 #   sudo drbdump
 #
 # This captures DRb messages on your loopback and public interface.  You can
 # disable name resolution with <code>-n</code>.  You can also drop root
-# privileges with the -Z option if you don't want drbdump to run as root after
-# it creates the capture device.
+# privileges with the <code>-Z</code> option if you don't want drbdump to run
+# as root after it creates the capture device.
 #
 # == Output
 #
 # +drbdump+ reassembles TCP streams to create a complete message-send or
-# message result and displays it to you when complete.  Here is an object in a
+# message-result and displays it to you when complete.  Here is an object in a
 # Rinda::TupleSpace being renewed (checked if it is still alive), but broken
 # into two lines:
 #
-#   17:46:27.818412 "druby://kault.local:65172" \u21d2
+#   17:46:27.818412 "druby://kault.local:65172" ⇒
 #                     ("druby://kault.local:63874", 70093484759080).renew()
-#   17:46:27.818709 "druby://kault.local:65172" \u21d0
+#   17:46:27.818709 "druby://kault.local:65172" ⇐
 #                     "druby://kault.local:63874" success: 180
 #
 # The first two lines are the message-send.  The first field is the timestamp
 # of the packet.  The second is the DRb peer the messages was sent from.
-# The greater-than sign indicates this is a message-send.  The remainder is
-# the DRb peer and object reference (7009...) the message is being sent to
+# The rightward arrow indicates this is a message-send.  The remainder is
+# the DRb peer and object reference (7009...) the message is being sent-to
 # along with the message (+renew+).  If any arguments were present they would
 # appear in the argument list.
 #
@@ -56,7 +56,7 @@ require 'thread'
 # For the second two lines are the return value from the message-send.  Here
 # they are again:
 #
-#   17:46:27.818709 "druby://kault.local:65172" \u21d0
+#   17:46:27.818709 "druby://kault.local:65172" ⇐
 #                     "druby://kault.local:63874" success: 180
 #
 # The fields are the timestamp, the DRb peer that sent the message and is
@@ -362,7 +362,8 @@ Usage: #{opt.program_name} [options]
   end
 
   ##
-  # Creates a new DRbDump for +options+.  The following options are allowed:
+  # Creates a new DRbDump for +options+.  The following options are
+  # understood:
   #
   # :devices::
   #   An Array of devices to listen on.  If the Array is empty then the
@@ -431,7 +432,7 @@ Usage: #{opt.program_name} [options]
   end
 
   ##
-  # Removes tracking data for the stream from +source+
+  # Removes tracking data for the stream from +source+.
 
   def close_stream source # :nodoc:
     @drb_streams.delete source
@@ -441,7 +442,7 @@ Usage: #{opt.program_name} [options]
 
   ##
   # Creates a new Capp instance that listens on +device+ for DRb and Rinda
-  # packets
+  # packets.
 
   def create_capp device # :nodoc:
     capp = Capp.open device
@@ -456,7 +457,7 @@ Usage: #{opt.program_name} [options]
   end
 
   ##
-  # Displays information from Rinda::RingFinger packet +packet+
+  # Displays information from Rinda::RingFinger packet +packet+.
   #
   # Currently only understands RingFinger broadcast packets.
 
@@ -508,7 +509,7 @@ Usage: #{opt.program_name} [options]
   # Writes the start of a DRb stream from a packet that was too large to
   # transmit.
 
-  def display_drb_too_large packet
+  def display_drb_too_large packet # :nodoc:
     return if @quiet
 
     rest = packet.payload
@@ -525,7 +526,7 @@ Usage: #{opt.program_name} [options]
   end
 
   ##
-  # Displays each captured packet.
+  # Starts a thread that displays each captured packet.
 
   def display_packets
     @running = true
@@ -561,9 +562,9 @@ Usage: #{opt.program_name} [options]
 
   ##
   # Loads Marshal data in +object+ if possible, or returns a DRb::DRbUnknown
-  # if there was some error
+  # if there was some error.
 
-  def load_marshal_data object
+  def load_marshal_data object # :nodoc:
     object.load
   rescue NameError, ArgumentError => e
     DRb::DRbUnknown.new e, object.stream
@@ -596,9 +597,9 @@ Usage: #{opt.program_name} [options]
   end
 
   ##
-  # Resolves source and destination addresses in +packet+ for use in DRb URIs
+  # Resolves source and destination addresses in +packet+ for use in DRb URIs.
 
-  def resolve_addresses packet
+  def resolve_addresses packet # :nodoc:
     source = packet.source @resolver
     source = "\"druby://#{source.sub(/\.(\d+)$/, ':\1')}\""
 
@@ -686,7 +687,7 @@ Usage: #{opt.program_name} [options]
   # Returns the valid parts, the size and content of the invalid part in
   # +large_packet+
 
-  def valid_in_payload too_large
+  def valid_in_payload too_large # :nodoc:
     load_limit = @drb_config[:load_limit]
 
     size  = nil

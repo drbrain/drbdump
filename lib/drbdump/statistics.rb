@@ -127,6 +127,10 @@ class DRbDump::Statistics
     @message_allocations[message][argc].add allocations + result.allocations
   end
 
+  ##
+  # Adjusts units in +stats+ from +unit+ to milli-unit if the minimum value is
+  # below the required threshold
+
   def adjust_units stats, unit # :nodoc:
     if stats.first > 0.05 then
       stats << unit
@@ -139,6 +143,9 @@ class DRbDump::Statistics
 
     stats << unit
   end
+
+  ##
+  # Extracts data and column widths from +data+
 
   def extract_and_size data # :nodoc:
     max_outer_size = 0
@@ -165,7 +172,10 @@ class DRbDump::Statistics
     return max_outer_size, max_inner_size, max_count_size, rows
   end
 
-  def merge_results allocation_rows, latency_rows
+  ##
+  # Merges +allocation_rows+ and +latency_rows+ into a single data set.
+
+  def merge_results allocation_rows, latency_rows # :nodoc:
     allocations = allocation_rows.group_by { |message, argc,| [message, argc] }
     latencies   = latency_rows.group_by { |message, argc,| [message, argc] }
 
@@ -180,6 +190,9 @@ class DRbDump::Statistics
     end
   end
 
+  ##
+  # Collapses multiple single-message peers in +rows+ to a single row.
+
   def multiple_peers count_size, source_size, destination_size, rows # :nodoc:
     rows = rows.sort_by { |_, _, count| -count }
 
@@ -193,7 +206,7 @@ class DRbDump::Statistics
     end
   end
 
-  def per_message_results
+  def per_message_results # :nodoc:
     name_size, argc_size, sends_size, allocation_rows =
       extract_and_size @message_allocations
 
@@ -205,6 +218,10 @@ class DRbDump::Statistics
 
     return name_size, argc_size, sends_size, rows
   end
+
+  ##
+  # Creates a two-level statistic hash with a DRbDump::Statistic as the inner
+  # object for the keys.
 
   def two_level_statistic_hash # :nodoc:
     Hash.new do |outer, outer_key|
@@ -276,6 +293,9 @@ class DRbDump::Statistics
     puts 'Messages sent min, avg, max, stddev:'
     puts output
   end
+
+  ##
+  # Displays single peers
 
   def single_peers count_size, rows # :nodoc:
     return if rows.empty?
